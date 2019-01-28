@@ -16,9 +16,10 @@
 ## 
 ## OS = posix
 ## OS = rtems
-## OS = vxworks6 
+## OS = vxworks6
+## OS = freertos
 ##---------------------------------------------------------
-OS = posix
+OS = freertos
 
 ##---------------------------------------------------------
 ## BSP -- BSP/Operating system for the board
@@ -31,8 +32,9 @@ OS = posix
 ## BSP = mcf5235-rtems       -- RTEMS Coldfire evaluation board
 ## BSP = sis-rtems           -- RTEMS Sparc Instruction Simulator (GDB)
 ## BSP = sparc-vxworks6.7    -- ut699 SPARC Leon3 development board
+## BSP = arm-freertos        -- Target to run on ARM FreeRTOS
 ##---------------------------------------------------------
-BSP = pc-linux
+BSP = arm-freertos
 
 ##---------------------------------------------------------
 ## OSAL_M32 -- optional, build 32-bit images on 64-bit build machines

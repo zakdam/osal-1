@@ -8,7 +8,6 @@
 #include "common_types.h"
 #include "osapi.h"
 
-
 /* Task */
 
 #define TASK_ID         1
@@ -42,11 +41,16 @@ void OS_Application_Startup(void)
 
 void task(void)
 {
+    uint32 counter = 0;
     OS_printf("Starting task\n");
-
     OS_TaskRegister();
+    OS_printf("Task is running now\n");
 
     while(1)
     {
+      OS_printf("counter: %ld\n", counter);
+      counter += 1;
+
+      OS_TaskDelay(500);
     }
 }

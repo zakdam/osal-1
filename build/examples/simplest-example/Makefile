@@ -5,6 +5,10 @@
 # History:
 #
 ###############################################################################
+
+FREERTOS_ROOT = /home/user/projects/FreeRTOS-Sim
+
+
 #
 # Subsystem produced by this makefile.
 #
@@ -80,6 +84,12 @@ INCLUDE_PATH = \
 -I$(OSAL_SRC)/os/inc \
 -I$(OSAL_SRC)/examples/$(APPTARGET) \
 -I../../inc
+
+# FreeRTOS Includes
+INCLUDE_PATH += -I$(FREERTOS_ROOT)/Source/include
+INCLUDE_PATH += -I$(FREERTOS_ROOT)/Source/portable/GCC/POSIX/
+INCLUDE_PATH += -I$(FREERTOS_ROOT)/Demo/Common/include
+INCLUDE_PATH += -I$(FREERTOS_ROOT)/Project
 
 ##
 ## Define the VPATH make variable. 
