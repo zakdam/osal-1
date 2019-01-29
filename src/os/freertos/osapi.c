@@ -340,7 +340,44 @@ int32 OS_TaskCreate (uint32 *task_id, const char *task_name, osal_task_entry fun
 ---------------------------------------------------------------------------------------*/
 int32 OS_TaskDelete (uint32 task_id)
 {
+    FuncPtr_t         FunctionPointer;
+
+    /* 
+    ** Check to see if the task_id given is valid 
+    */
+    if (task_id >= OS_MAX_TASKS || OS_task_table[task_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /*
+    ** Call the task Delete hook if there is one.
+    */
+    if ( OS_task_table[task_id].delete_hook_pointer != NULL)
+    {
+       FunctionPointer = (FuncPtr_t)OS_task_table[task_id].delete_hook_pointer;
+       (*FunctionPointer)();
+    }
+
+    /* Try to delete the task */
+    vTaskDelete(OS_task_table[task_id].task_handle);
+
+    /*
+     * Now that the task is deleted, remove its 
+     * "presence" in OS_task_table
+    */
+    xSemaphoreTake( OS_task_table_mut, 0 );  /* TODO: fix timings */
+    OS_task_table[task_id].free = TRUE;
+    OS_task_table[task_id].task_handle = UNINITIALIZED;
+    OS_task_table[task_id].name[0] = '\0';
+    OS_task_table[task_id].creator = UNINITIALIZED;
+    OS_task_table[task_id].stack_size = UNINITIALIZED;
+    OS_task_table[task_id].priority = UNINITIALIZED;
+    OS_task_table[task_id].delete_hook_pointer = NULL;
+    xSemaphoreGive( OS_task_table_mut );
+
     return OS_SUCCESS;
+
 }/* end OS_TaskDelete */
 
 /*--------------------------------------------------------------------------------------
@@ -353,6 +390,30 @@ int32 OS_TaskDelete (uint32 task_id)
 
 void OS_TaskExit()
 {
+    uint32 task_id;
+
+    task_id = OS_TaskGetId();
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_task_table_mut, 0 );  /* TODO: fix timings */
+
+    OS_task_table[task_id].free = TRUE;
+    OS_task_table[task_id].task_handle = UNINITIALIZED;
+    strcpy(OS_task_table[task_id].name, "");
+    OS_task_table[task_id].creator = UNINITIALIZED;
+    OS_task_table[task_id].stack_size = UNINITIALIZED;
+    OS_task_table[task_id].priority = UNINITIALIZED;
+    OS_task_table[task_id].delete_hook_pointer = NULL;
+    
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_task_table_mut );
+
+    /* TODO: find FreeRTOS alternative */
+
 }/*end OS_TaskExit */
 /*---------------------------------------------------------------------------------------
    Name: OS_TaskDelay
@@ -382,7 +443,27 @@ int32 OS_TaskDelay(uint32 millisecond )
 ---------------------------------------------------------------------------------------*/
 int32 OS_TaskSetPriority (uint32 task_id, uint32 new_priority)
 {
-   return OS_SUCCESS;
+    /* Check Parameters */
+    if (task_id >= OS_MAX_TASKS || OS_task_table[task_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    if (new_priority > MAX_PRIORITY)
+    {
+        return OS_ERR_INVALID_PRIORITY;
+    }
+
+    /* Set FreeRTOS Task Priority */
+    vTaskPrioritySet( OS_task_table[task_id].task_handle, new_priority );
+
+    /* TODO: do we need to translate priority for FreeRTOS? */
+    /* Use the abstracted priority, not the OS one */
+    /* Change the priority in the table as well */
+    OS_task_table[task_id].priority = new_priority;
+
+    return OS_SUCCESS;
+
 } /* end OS_TaskSetPriority */
 
 
@@ -468,7 +549,36 @@ uint32 OS_TaskGetId (void)
 
 int32 OS_TaskGetIdByName (uint32 *task_id, const char *task_name)
 {
-    return OS_SUCCESS;
+    uint32 i;
+
+    /*
+     * Note: This function accesses the OS_task_table without locking that table's
+     * semaphore.
+     */
+    if (task_id == NULL || task_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* we don't want to allow names too long because they won't be found at all */
+    if (strlen(task_name) >= OS_MAX_API_NAME)
+    {
+            return OS_ERR_NAME_TOO_LONG;
+    }
+
+    for (i = 0; i < OS_MAX_TASKS; i++)
+    {
+        if((OS_task_table[i].free != TRUE) &&
+          (strcmp(OS_task_table[i].name, (char *)task_name) == 0 ))
+        {
+            *task_id = i;
+            return OS_SUCCESS;
+        }
+    }
+    /* The name was not found in the table,
+     *  or it was, and the task_id isn't valid anymore */
+    return OS_ERR_NAME_NOT_FOUND;
+
 }/* end OS_TaskGetIdByName */
 
 /*---------------------------------------------------------------------------------------
@@ -485,7 +595,43 @@ int32 OS_TaskGetIdByName (uint32 *task_id, const char *task_name)
 ---------------------------------------------------------------------------------------*/
 int32 OS_TaskGetInfo (uint32 task_id, OS_task_prop_t *task_prop)  
 {
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_task_table_mut, 0 );  /* TODO: fix timings */
+    /* Check to see that the id given is valid */
+    if (task_id >= OS_MAX_TASKS || OS_task_table[task_id].free == TRUE)
+    {
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_task_table_mut );
+        return OS_ERR_INVALID_ID;
+    }
+
+    if( task_prop == NULL)
+    {
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_task_table_mut );
+        return OS_INVALID_POINTER;
+    }
+
+    /* put the info into the stucture */
+    task_prop -> creator =    OS_task_table[task_id].creator;
+    task_prop -> stack_size = OS_task_table[task_id].stack_size;
+    task_prop -> priority =   OS_task_table[task_id].priority;
+    task_prop -> OStask_id =  (uint32)OS_task_table[task_id].task_handle;  /* TODO: seems wrong! */
+
+    strcpy(task_prop-> name, OS_task_table[task_id].name);
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_task_table_mut );
+
     return OS_SUCCESS;
+
 } /* end OS_TaskGetInfo */
 
 /*--------------------------------------------------------------------------------------
@@ -498,7 +644,44 @@ int32 OS_TaskGetInfo (uint32 task_id, OS_task_prop_t *task_prop)
 
 int32 OS_TaskInstallDeleteHandler(osal_task_entry function_pointer)
 {
+    uint32 task_id;
+
+    task_id = OS_TaskGetId();
+
+    if ( task_id >= OS_MAX_TASKS )
+    {
+       return(OS_ERR_INVALID_ID);
+    }
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_task_table_mut, 0 );  /* TODO: fix timings */
+
+    if ( OS_task_table[task_id].free != FALSE )
+    {
+       /* 
+       ** Somehow the calling task is not registered 
+       */
+       /*
+       ** Unlock
+       */
+       xSemaphoreGive( OS_task_table_mut );
+       return(OS_ERR_INVALID_ID);
+    }
+
+    /*
+    ** Install the pointer
+    */
+    OS_task_table[task_id].delete_hook_pointer = function_pointer;
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_task_table_mut );
+
     return(OS_SUCCESS);
+
 }/*end OS_TaskInstallDeleteHandler */
 
 /****************************************************************************************
