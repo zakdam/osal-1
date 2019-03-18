@@ -13,9 +13,16 @@
 WARNINGS=-Wall -pedantic -std=c99 -Wstrict-prototypes
 
 ## 
-## Host OS Include Paths ( be sure to put the -I switch in front of each directory )
+## FreeRTOS simulator Include Paths
 ##
-SYSINCS=
+# TODO beautify it! (copy-pasted from other OS)
+FREERTOS_ROOT = /home/user/projects/FreeRTOS-Sim
+FREERTOS_SIM = $(FREERTOS_ROOT)/Source/include \
+               $(FREERTOS_ROOT)/Source/portable/GCC/POSIX/ \
+               $(FREERTOS_ROOT)/Demo/Common/include \
+               $(FREERTOS_ROOT)/Project
+
+SYSINCS = $(FREERTOS_SIM:%=-I%)
 
 ##
 ## Target Defines for the OS, Hardware Arch, etc..
