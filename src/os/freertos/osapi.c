@@ -40,7 +40,7 @@
 ** Tables for the properties of objects 
 */
 
-/*tasks */
+/* tasks */
 typedef struct
 {
     int              free;
@@ -52,13 +52,66 @@ typedef struct
     osal_task_entry  delete_hook_pointer;
 }OS_task_internal_record_t;
 
+/* queues */
+typedef struct
+{
+    int            free;
+    QueueHandle_t  queue_handle;  /* TODO: check */
+    uint32         max_size;
+    char           name [OS_MAX_API_NAME];
+    int            creator;
+}OS_queue_internal_record_t;
+
+/* Binary Semaphores */
+typedef struct
+{
+    int                free;
+    SemaphoreHandle_t  bin_sem_handle;
+    char               name [OS_MAX_API_NAME];
+    int                creator;
+}OS_bin_sem_internal_record_t;
+
+#if 0
+/* Counting Semaphores */
+typedef struct
+{
+    int      free;
+    rtems_id id;
+    char     name [OS_MAX_API_NAME];
+    int      creator;
+}OS_count_sem_internal_record_t;
+
+/* Mutexes */
+typedef struct
+{
+    int             free;
+    rtems_id        id;
+    char            name [OS_MAX_API_NAME];
+    int             creator;
+}OS_mut_sem_internal_record_t;
+#endif
+
 /* function pointer type */
 typedef void (*FuncPtr_t)(void);
 
 /* Tables where the OS object information is stored */
 OS_task_internal_record_t       OS_task_table          [OS_MAX_TASKS];
+OS_queue_internal_record_t      OS_queue_table         [OS_MAX_QUEUES];
+
+#if 0
+OS_bin_sem_internal_record_t    OS_bin_sem_table       [OS_MAX_BIN_SEMAPHORES];
+OS_count_sem_internal_record_t  OS_count_sem_table     [OS_MAX_COUNT_SEMAPHORES];
+OS_mut_sem_internal_record_t    OS_mut_sem_table       [OS_MAX_MUTEXES];
+#endif
 
 SemaphoreHandle_t OS_task_table_mut;
+SemaphoreHandle_t OS_queue_table_mut;
+
+#if 0
+SemaphoreHandle_t OS_bin_sem_table_mut;
+SemaphoreHandle_t OS_count_sem_table;
+SemaphoreHandle_t OS_mut_sem_table;
+#endif
 
 uint32          OS_printf_enabled = TRUE;
 volatile uint32 OS_shutdown = FALSE;
@@ -91,6 +144,42 @@ int32 OS_API_Init(void)
         strcpy(OS_task_table[i].name,"");
     }
 
+    /* Initialize Message Queue Table */
+    for(i = 0; i < OS_MAX_QUEUES; i++)
+    {
+        OS_queue_table[i].free        = TRUE;
+        OS_queue_table[i].creator     = UNINITIALIZED;
+        strcpy(OS_queue_table[i].name,"");
+    }
+
+#if 0
+    /* Initialize Binary Semaphore Table */
+    for(i = 0; i < OS_MAX_BIN_SEMAPHORES; i++)
+    {
+        OS_bin_sem_table[i].free          = TRUE;
+        OS_bin_sem_table[i].creator       = UNINITIALIZED;
+        strcpy(OS_bin_sem_table[i].name,"");
+    }
+
+    /* Initialize Counting Semaphore Table */
+    for(i = 0; i < OS_MAX_COUNT_SEMAPHORES; i++)
+    {
+        OS_count_sem_table[i].free        = TRUE;
+        OS_count_sem_table[i].id          = UNINITIALIZED;
+        OS_count_sem_table[i].creator     = UNINITIALIZED;
+        OS_count_sem_table[i].name[0] = '\0';
+    }
+
+    /* Initialize Mutex Semaphore Table */
+    for(i = 0; i < OS_MAX_MUTEXES; i++)
+    {
+        OS_mut_sem_table[i].free        = TRUE;
+        OS_mut_sem_table[i].id          = UNINITIALIZED;
+        OS_mut_sem_table[i].creator     = UNINITIALIZED;
+        OS_mut_sem_table[i].name[0] = '\0';
+    }
+#endif
+
    /*
    ** Initialize the module loader
    */
@@ -118,6 +207,36 @@ int32 OS_API_Init(void)
       return_code = OS_ERROR;
       return(return_code);
    }
+
+   OS_queue_table_mut = xSemaphoreCreateMutex();
+   if( OS_queue_table_mut == NULL )
+   {
+      return_code = OS_ERROR;
+      return(return_code);
+   }
+
+#if 0
+   OS_bin_sem_table_mut = xSemaphoreCreateMutex();
+   if( OS_bin_sem_table_mut == NULL )
+   {
+      return_code = OS_ERROR;
+      return(return_code);
+   }
+
+   OS_count_sem_table = xSemaphoreCreateMutex();
+   if( OS_count_sem_table == NULL )
+   {
+      return_code = OS_ERROR;
+      return(return_code);
+   }
+
+   OS_mut_sem_table = xSemaphoreCreateMutex();
+   if( OS_mut_sem_table == NULL )
+   {
+      return_code = OS_ERROR;
+      return(return_code);
+   }
+#endif
 
 /* TODO: implement */
 //   /*
@@ -687,6 +806,408 @@ int32 OS_TaskInstallDeleteHandler(osal_task_entry function_pointer)
 /****************************************************************************************
                                 MESSAGE QUEUE API
 ****************************************************************************************/
+/*---------------------------------------------------------------------------------------
+   Name: OS_QueueCreate
+
+   Purpose: Create a message queue which can be refered to by name or ID
+
+   Returns: OS_INVALID_POINTER if a pointer passed in is NULL
+            OS_ERR_NAME_TOO_LONG if the name passed in is too long
+            OS_ERR_NO_FREE_IDS if there are already the max queues created
+            OS_ERR_NAME_TAKEN if the name is already being used on another queue
+            OS_ERROR if the OS create call fails
+            OS_SUCCESS if success
+
+   Notes: the flahs parameter is unused.
+---------------------------------------------------------------------------------------*/
+
+int32 OS_QueueCreate (uint32 *queue_id, const char *queue_name, uint32 queue_depth,
+                       uint32 data_size, uint32 flags)
+{
+    uint32 possible_qid;
+    uint32 i;
+    QueueHandle_t queue_handle;  /* TODO: init it with some value */
+
+    if ( queue_id == NULL || queue_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* we don't want to allow names too long*/
+    /* if truncated, two names might be the same */
+    if (strlen(queue_name) >= OS_MAX_API_NAME)
+    {
+        return OS_ERR_NAME_TOO_LONG;
+    }
+
+    /* Check Parameters */
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_queue_table_mut, 0 );  /* TODO: fix timings */
+    for (possible_qid = 0; possible_qid < OS_MAX_QUEUES; possible_qid++)
+    {
+        if (OS_queue_table[possible_qid].free == TRUE)
+        {
+            break;
+        }
+    }
+
+    if( possible_qid >= OS_MAX_QUEUES || OS_queue_table[possible_qid].free != TRUE)
+    {
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_queue_table_mut );
+        return OS_ERR_NO_FREE_IDS;
+    }
+
+    /* Check to see if the name is already taken */
+    for (i = 0; i < OS_MAX_QUEUES; i++)
+    {
+        if ((OS_queue_table[i].free == FALSE) &&
+                strcmp ((char*)queue_name, OS_queue_table[i].name) == 0)
+        {
+            /*
+            ** Unlock
+            */
+            xSemaphoreGive( OS_queue_table_mut );
+            return OS_ERR_NAME_TAKEN;
+        }
+    }
+
+    OS_queue_table[possible_qid].free = FALSE;
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_queue_table_mut );
+
+    /* Create FreeRTOS Message Queue */
+    queue_handle = xQueueCreate(queue_depth, data_size);
+
+    /* check if message Q create failed */
+    if(queue_handle == NULL)
+    {
+        /*
+        ** Lock
+        */
+        xSemaphoreTake( OS_queue_table_mut, 0 );  /* TODO: fix timings */
+        OS_queue_table[possible_qid].free = TRUE;
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_queue_table_mut );
+        return OS_ERROR;
+    }
+
+    /* Set the queue_id to the id that was found available*/
+    /* Set the name of the queue, and the creator as well */
+    *queue_id = possible_qid;
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_queue_table_mut, 0 );  /* TODO: fix timings */
+
+    OS_queue_table[*queue_id].queue_handle = queue_handle;
+    OS_queue_table[*queue_id].max_size = data_size;
+    strcpy( OS_queue_table[*queue_id].name, (char*) queue_name);
+    OS_queue_table[*queue_id].creator = OS_FindCreator();
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_queue_table_mut );
+
+    return OS_SUCCESS;
+
+} /* end OS_QueueCreate */
+
+/*--------------------------------------------------------------------------------------
+    Name: OS_QueueDelete
+
+    Purpose: Deletes the specified message queue.
+
+    Returns: OS_ERR_INVALID_ID if the id passed in does not exist
+             OS_ERROR if the OS call to delete the queue fails
+             OS_SUCCESS if success
+
+    Notes: If There are messages on the queue, they will be lost and any subsequent
+           calls to QueueGet or QueuePut to this queue will result in errors
+---------------------------------------------------------------------------------------*/
+
+int32 OS_QueueDelete (uint32 queue_id)
+{
+    /*
+     * Note: There is currently no semaphore protection for the simple
+     * OS_queue_table accesses in this function, only the significant
+     * table entry update.
+     */
+    /* Check to see if the queue_id given is valid */
+    if (queue_id >= OS_MAX_QUEUES || OS_queue_table[queue_id].free == TRUE)
+    {
+       return OS_ERR_INVALID_ID;
+    }
+
+    /* Delete the queue (FreeRTOS doesn't have return code for this operation) */
+    vQueueDelete( OS_queue_table[queue_id].queue_handle );
+
+    /*
+     * Now that the queue is deleted, remove its "presence"
+     * in OS_message_q_table and OS_message_q_name_table
+    */
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_queue_table_mut, 0 );  /* TODO: fix timings */
+
+    OS_queue_table[queue_id].free = TRUE;
+    strcpy(OS_queue_table[queue_id].name, "");
+    OS_queue_table[queue_id].creator = UNINITIALIZED;
+    OS_queue_table[queue_id].queue_handle = UNINITIALIZED;
+    OS_queue_table[queue_id].max_size = 0;
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_queue_table_mut );
+
+    return OS_SUCCESS;
+
+} /* end OS_QueueDelete */
+
+/*---------------------------------------------------------------------------------------
+   Name: OS_QueueGet
+
+   Purpose: Receive a message on a message queue.  Will pend or timeout on the receive.
+   Returns: OS_ERR_INVALID_ID if the given ID does not exist
+            OS_ERR_INVALID_POINTER if a pointer passed in is NULL
+            OS_QUEUE_EMPTY if the Queue has no messages on it to be recieved
+            OS_QUEUE_TIMEOUT if the timeout was OS_PEND and the time expired
+            OS_QUEUE_INVALID_SIZE if the buffer passed in is too small for the maximum sized 
+                                 message
+            OS_SUCCESS if success
+---------------------------------------------------------------------------------------*/
+
+int32 OS_QueueGet (uint32 queue_id, void *data, uint32 size, uint32 *size_copied,
+                    int32 timeout)
+{
+    /*
+     * Note: this function accesses the OS_queue_table without locking that table's
+     * semaphore.
+     */
+    /* msecs rounded to the closest system tick count */
+    BaseType_t status;
+    uint32 sys_ticks;
+
+    /* Check Parameters */
+    if ( (data == NULL) || (size_copied == NULL) )
+    {
+        return OS_INVALID_POINTER;
+    }
+    if (queue_id >= OS_MAX_QUEUES || OS_queue_table[queue_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+    if ( size < OS_queue_table[queue_id].max_size )
+    {
+        /* 
+        ** The buffer that the user is passing in is potentially too small
+        ** RTEMS will just copy into a buffer that is too small
+        */
+        *size_copied = 0;
+        return(OS_QUEUE_INVALID_SIZE);
+    }
+
+    /* Get Message From FreeRTOS Message Queue */
+    if (timeout == OS_PEND)
+    {
+        status = xQueueReceive( OS_queue_table[queue_id].queue_handle, data, portMAX_DELAY );
+    }
+    else if (timeout == OS_CHECK)
+    {
+        status = xQueueReceive( OS_queue_table[queue_id].queue_handle, data, 0 );  /* TODO: convert the type for zero */
+
+        if (status == errQUEUE_EMPTY)
+        {
+            *size_copied = 0;
+            return OS_QUEUE_EMPTY;
+        }
+    }
+    else
+    {
+        sys_ticks = OS_Milli2Ticks(timeout);
+        status = xQueueReceive( OS_queue_table[queue_id].queue_handle, data, sys_ticks );  /* TODO: convert the type for sys_ticks */
+
+        if (status != pdPASS)  /* TODO: check if the queue is empty? */
+        {
+            *size_copied = 0;
+            return OS_QUEUE_TIMEOUT;
+        }
+    }
+
+    if(status != pdPASS)
+    {
+        *size_copied = 0;
+        return OS_ERROR;
+    }
+    else
+    {
+        *size_copied = (uint32) size;  /* TODO: is it correct? */
+        return OS_SUCCESS;
+    }
+
+}/* end OS_QueueGet */
+
+/*---------------------------------------------------------------------------------------
+   Name: OS_QueuePut
+
+   Purpose: Put a message on a message queue.
+
+   Returns: OS_ERR_INVALID_ID if the queue id passed in is not a valid queue
+            OS_INVALID_POINTER if the data pointer is NULL
+            OS_QUEUE_FULL if the queue cannot accept another message
+            OS_ERROR if the OS call returns an error
+            OS_SUCCESS if SUCCESS
+
+   Notes: The flags parameter is not used.  The message put is always configured to
+            immediately return an error if the receiving message queue is full.
+---------------------------------------------------------------------------------------*/
+
+int32 OS_QueuePut (uint32 queue_id, const void *data, uint32 size, uint32 flags)
+{
+    /*
+     * Note: This function accesses the OS_queue_table without locking that table's
+     * semaphore.
+     */
+    BaseType_t status;
+
+    /* Check Parameters */
+    if(queue_id >= OS_MAX_QUEUES || OS_queue_table[queue_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    if (data == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* Put Message Into FreeRTOS Message Queue */                            /* TODO: type conversion */
+    status = xQueueSendToBack( OS_queue_table[queue_id].queue_handle, (void*)data, 0 );
+
+    /* TODO: beautify the branches */
+    if (status != pdPASS)
+    {
+        if (status == errQUEUE_FULL)
+        {
+            return OS_QUEUE_FULL;
+        }
+        else
+        {
+            return OS_ERROR;
+        }
+    }
+    return OS_SUCCESS;
+
+}/* end OS_QueuePut */
+
+/*--------------------------------------------------------------------------------------
+    Name: OS_QueueGetIdByName
+
+    Purpose: This function tries to find a queue Id given the name of the queue. The 
+             id of the queue is passed back in queue_id
+
+    Returns: OS_INVALID_POINTER if the name or id pointers are NULL
+             OS_ERR_NAME_TOO_LONG the name passed in is too long
+             OS_ERR_NAME_NOT_FOUND the name was not found in the table
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+
+int32 OS_QueueGetIdByName (uint32 *queue_id, const char *queue_name)
+{
+    /*
+     * Note: This function accesses the OS_queue_table without
+     * locking that table's semaphore.
+     */
+    uint32 i;
+
+    if(queue_id == NULL || queue_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* a name too long wouldn't have been allowed in the first place
+     * so we definitely won't find a name too long*/
+
+    if (strlen(queue_name) >= OS_MAX_API_NAME)
+    {
+        return OS_ERR_NAME_TOO_LONG;
+    }
+
+    for (i = 0; i < OS_MAX_QUEUES; i++)
+    {
+        if ( OS_queue_table[i].free != TRUE &&
+                (strcmp(OS_queue_table[i].name, (char*) queue_name) == 0 ))
+        {
+            *queue_id = i;
+            return OS_SUCCESS;
+        }
+    }
+
+    /* The name was not found in the table,
+     *  or it was, and the queue_id isn't valid anymore */
+    return OS_ERR_NAME_NOT_FOUND;
+
+}/* end OS_QueueGetIdByName */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_QueueGetInfo
+
+    Purpose: This function will pass back a pointer to structure that contains
+             all of the relevant info (name and creator) about the specified queue.
+
+    Returns: OS_INVALID_POINTER if queue_prop is NULL
+             OS_ERR_INVALID_ID if the ID given is not  a valid queue
+             OS_SUCCESS if the info was copied over correctly
+---------------------------------------------------------------------------------------*/
+
+int32 OS_QueueGetInfo (uint32 queue_id, OS_queue_prop_t *queue_prop)
+{
+    /*
+     * Note: This function accesses the OS_queue_table without locking that table's
+     * semaphore, but locks the table while copying the data.
+     */
+    /* Check to see that the id given is valid */
+    if (queue_prop == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    if (queue_id >= OS_MAX_QUEUES || OS_queue_table[queue_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* put the info into the stucture */
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_queue_table_mut, 0 );  /* TODO: fix timings */
+
+    queue_prop -> creator = OS_queue_table[queue_id].creator;
+    strcpy(queue_prop -> name, OS_queue_table[queue_id].name);
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_queue_table_mut );
+
+    return OS_SUCCESS;
+
+} /* end OS_QueueGetInfo */
+
 
 /****************************************************************************************
                                   SEMAPHORE API
