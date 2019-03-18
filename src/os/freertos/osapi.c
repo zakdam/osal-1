@@ -97,18 +97,18 @@ typedef void (*FuncPtr_t)(void);
 /* Tables where the OS object information is stored */
 OS_task_internal_record_t       OS_task_table          [OS_MAX_TASKS];
 OS_queue_internal_record_t      OS_queue_table         [OS_MAX_QUEUES];
+OS_bin_sem_internal_record_t    OS_bin_sem_table       [OS_MAX_BIN_SEMAPHORES];
 
 #if 0
-OS_bin_sem_internal_record_t    OS_bin_sem_table       [OS_MAX_BIN_SEMAPHORES];
 OS_count_sem_internal_record_t  OS_count_sem_table     [OS_MAX_COUNT_SEMAPHORES];
 OS_mut_sem_internal_record_t    OS_mut_sem_table       [OS_MAX_MUTEXES];
 #endif
 
 SemaphoreHandle_t OS_task_table_mut;
 SemaphoreHandle_t OS_queue_table_mut;
+SemaphoreHandle_t OS_bin_sem_table_mut;
 
 #if 0
-SemaphoreHandle_t OS_bin_sem_table_mut;
 SemaphoreHandle_t OS_count_sem_table;
 SemaphoreHandle_t OS_mut_sem_table;
 #endif
@@ -1212,6 +1212,449 @@ int32 OS_QueueGetInfo (uint32 queue_id, OS_queue_prop_t *queue_prop)
 /****************************************************************************************
                                   SEMAPHORE API
 ****************************************************************************************/
+
+/*---------------------------------------------------------------------------------------
+   Name: OS_BinSemCreate
+
+   Purpose: Creates a binary semaphore with initial value specified by
+            sem_initial_value and name specified by sem_name. sem_id will be
+            returned to the caller
+
+   Returns: OS_INVALID_POINTER if sen name or sem_id are NULL
+            OS_ERR_NAME_TOO_LONG if the name given is too long
+            OS_ERR_NO_FREE_IDS if all of the semaphore ids are taken
+            OS_ERR_NAME_TAKEN if this is already the name of a binary semaphore
+            OS_SEM_FAILURE if the OS call failed
+            OS_SUCCESS if success
+
+
+   Notes: options is an unused parameter
+---------------------------------------------------------------------------------------*/
+
+int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_value,
+                        uint32 options)
+{
+    /* the current candidate for the new sem id */
+    uint32 possible_semid;
+    uint32 i;
+    SemaphoreHandle_t bin_sem_handle;  /* TODO: init with something */
+
+    if (sem_id == NULL || sem_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* we don't want to allow names too long*/
+    /* if truncated, two names might be the same */
+
+    if (strlen(sem_name) >= OS_MAX_API_NAME)
+    {
+        return OS_ERR_NAME_TOO_LONG;
+    }
+
+    /* Check Parameters */
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_bin_sem_table_mut, 0 );  /* TODO: fix timings */
+
+    for (possible_semid = 0; possible_semid < OS_MAX_BIN_SEMAPHORES; possible_semid++)
+    {
+        if (OS_bin_sem_table[possible_semid].free == TRUE)
+        {
+            break;
+        }
+    }
+
+    if((possible_semid >= OS_MAX_BIN_SEMAPHORES) ||
+       (OS_bin_sem_table[possible_semid].free != TRUE))
+    {
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_bin_sem_table_mut );
+        return OS_ERR_NO_FREE_IDS;
+    }
+
+    /* Check to see if the name is already taken */
+    for (i = 0; i < OS_MAX_BIN_SEMAPHORES; i++)
+    {
+        if ((OS_bin_sem_table[i].free == FALSE) &&
+                strcmp ((char*)sem_name, OS_bin_sem_table[i].name) == 0)
+        {
+            /*
+            ** Unlock
+            */
+            xSemaphoreGive( OS_bin_sem_table_mut );
+            return OS_ERR_NAME_TAKEN;
+        }
+    }
+    
+    OS_bin_sem_table[possible_semid].free  = FALSE;
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_bin_sem_table_mut );
+
+    /* Check to make sure the sem value is going to be either 0 or 1 */
+    if (sem_initial_value > 1)
+    {
+        sem_initial_value = 1;
+    }
+    
+    /* Create FreeRTOS Semaphore */
+    /* TODO: don't forget about the sem_initial_value ! */
+    bin_sem_handle = xSemaphoreCreateBinary();
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_bin_sem_table_mut, 0 );  /* TODO: fix timings */
+
+    /* check if semBCreate failed */
+    if (bin_sem_handle == NULL)
+    {
+        OS_bin_sem_table[possible_semid].free  = TRUE;
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_bin_sem_table_mut );
+        return OS_SEM_FAILURE;
+    }
+
+    /* Set the sem_id to the one that we found available */
+    /* Set the name of the semaphore,creator and free as well */
+
+    *sem_id = possible_semid;
+
+    OS_bin_sem_table[*sem_id].free = FALSE;
+    OS_bin_sem_table[*sem_id].bin_sem_handle = bin_sem_handle;
+    strcpy(OS_bin_sem_table[*sem_id].name, (char *)sem_name);
+    OS_bin_sem_table[*sem_id].creator = OS_FindCreator();
+    
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_bin_sem_table_mut );
+
+    return OS_SUCCESS;
+
+}/* end OS_BinSemCreate */
+
+/*--------------------------------------------------------------------------------------
+     Name: OS_BinSemDelete
+
+    Purpose: Deletes the specified Binary Semaphore.
+
+    Returns: OS_ERR_INVALID_ID if the id passed in is not a valid binary semaphore
+             OS_SEM_FAILURE the OS call failed
+             OS_SUCCESS if success
+---------------------------------------------------------------------------------------*/
+
+int32 OS_BinSemDelete (uint32 sem_id)
+{
+    /*
+     * Note: There is currently no semaphore protection for the simple
+     * OS_bin_sem_table accesses in this function, only the significant
+     * table entry update.
+     */
+    /* Check to see if this sem_id is valid */
+    if (sem_id >= OS_MAX_BIN_SEMAPHORES || OS_bin_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* FreeRTOS doesn't have return values for this function */
+    vSemaphoreDelete( OS_bin_sem_table[sem_id].bin_sem_handle );
+
+    /* Remove the Id from the table, and its name, so that it cannot be found again */
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_bin_sem_table_mut, 0 );  /* TODO: fix timings */
+
+    OS_bin_sem_table[sem_id].free = TRUE;
+    strcpy(OS_bin_sem_table[sem_id].name, "");
+    OS_bin_sem_table[sem_id].creator = UNINITIALIZED;
+    OS_bin_sem_table[sem_id].bin_sem_handle = NULL;  /* TODO: fix it */
+    
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_bin_sem_table_mut );
+
+    return OS_SUCCESS;
+
+}/* end OS_BinSemDelete */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_BinSemGive
+
+    Purpose: The function  unlocks the semaphore referenced by sem_id by performing
+             a semaphore unlock operation on that semaphore.If the semaphore value 
+             resulting from this operation is positive, then no threads were blocked             
+             waiting for the semaphore to become unlocked; the semaphore value is
+             simply incremented for this semaphore.
+
+    
+    Returns: OS_SEM_FAILURE the semaphore was not previously  initialized or is not
+             in the array of semaphores defined by the system
+             OS_ERR_INVALID_ID if the id passed in is not a binary semaphore
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+int32 OS_BinSemGive (uint32 sem_id)
+{
+    /*
+     * Note: This function accesses the OS_bin_sem_table without locking that table's
+     * semaphore.
+     */
+    /* Check Parameters */
+    if (sem_id >= OS_MAX_BIN_SEMAPHORES || OS_bin_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* Give FreeRTOS Semaphore */
+    if (xSemaphoreGive( OS_bin_sem_table[sem_id].bin_sem_handle ) != pdPASS)
+    {
+       return OS_SEM_FAILURE;
+    }
+    /* just drop the semGive call */
+    return OS_SUCCESS;
+    
+}/* end OS_BinSemGive */
+
+/* TODO: what is flush for FreeRTOS? */
+#if 0
+/*---------------------------------------------------------------------------------------
+    Name: OS_BinSemFlush
+
+    Purpose: The function unblocks all tasks pending on the specified semaphore. However,
+             this function does not change the state of the semaphore.
+
+    
+    Returns: OS_SEM_FAILURE the semaphore was not previously  initialized or is not
+             in the array of semaphores defined by the system
+             OS_ERR_INVALID_ID if the id passed in is not a binary semaphore
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+int32 OS_BinSemFlush (uint32 sem_id)
+{
+    /*
+     * Note: This function accesses the OS_bin_sem_table without locking that table's
+     * semaphore.
+     */
+    /* Check Parameters */
+    if(sem_id >= OS_MAX_BIN_SEMAPHORES || OS_bin_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* Flush VxWorks Semaphore */
+    if(semFlush(OS_bin_sem_table[sem_id].id) != OK)
+    {
+        return OS_SEM_FAILURE;
+    }
+
+    return OS_SUCCESS;
+
+}/* end OS_BinSemFlush */
+#endif
+
+/*---------------------------------------------------------------------------------------
+    Name:    OS_BinSemTake
+
+    Purpose: The locks the semaphore referenced by sem_id by performing a
+             semaphore lock operation on that semaphore.If the semaphore value
+             is currently zero, then the calling thread shall not return from
+             the call until it either locks the semaphore or the call is
+             interrupted by a signal.
+
+    Return:  OS_SEM_FAILURE : the semaphore was not previously initialized
+             or is not in the array of semaphores defined by the system
+             OS_ERR_INVALID_ID the Id passed in is not a valid binar semaphore
+             OS_SEM_FAILURE if the OS call failed
+             OS_SUCCESS if success
+
+----------------------------------------------------------------------------------------*/
+
+int32 OS_BinSemTake (uint32 sem_id)
+{
+    /*
+     * Note: This function accesses the OS_bin_sem_table without locking that table's
+     * semaphore.
+     */
+    /* Check Parameters */
+    if (sem_id >= OS_MAX_BIN_SEMAPHORES  || OS_bin_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* Take FreeRTOS Semaphore
+     */
+    if (xSemaphoreTake( OS_bin_sem_table[sem_id].bin_sem_handle, portMAX_DELAY ) != pdPASS)
+    {
+        return OS_SEM_FAILURE;
+    }
+    else
+    {
+       return OS_SUCCESS;
+    }
+
+}/* end OS_BinSemTake */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_BinSemTimedWait
+
+    Purpose: The function locks the semaphore referenced by sem_id . However,
+             if the semaphore cannot be locked without waiting for another process
+             or thread to unlock the semaphore , this wait shall be terminated when
+             the specified timeout ,msecs, expires.
+
+    Returns: OS_SEM_TIMEOUT if semaphore was not relinquished in time
+             OS_SUCCESS if success
+             OS_SEM_FAILURE the semaphore was not previously initialized or is not
+             in the array of semaphores defined by the system
+             OS_ERR_INVALID_ID if the ID passed in is not a valid semaphore ID
+----------------------------------------------------------------------------------------*/
+
+int32 OS_BinSemTimedWait (uint32 sem_id, uint32 msecs)
+{
+    /*
+     * Note: This function accesses the OS_bin_sem_table without locking that table's
+     * semaphore.
+     */
+    /* msecs rounded to the closest system tick count */
+    uint32 sys_ticks;
+    BaseType_t status;
+
+
+    /* Check Parameters */
+    if( (sem_id >= OS_MAX_BIN_SEMAPHORES) || (OS_bin_sem_table[sem_id].free == TRUE) )
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    sys_ticks = OS_Milli2Ticks(msecs);
+
+    /* Wait for VxWorks Semaphore
+     */
+    status = xSemaphoreTake( OS_bin_sem_table[sem_id].bin_sem_handle, sys_ticks );
+    if (status == pdPASS)
+    {
+       return OS_SUCCESS;
+    }
+/* TODO: is there a way to find if timeout happened? */
+    else
+    {
+       return OS_SEM_FAILURE;
+    }
+
+}/* end OS_BinSemTimedWait */
+
+/*--------------------------------------------------------------------------------------
+    Name: OS_BinSemGetIdByName
+
+    Purpose: This function tries to find a binary sem Id given the name of a bin_sem
+             The id is returned through sem_id
+
+    Returns: OS_INVALID_POINTER is semid or sem_name are NULL pointers
+             OS_ERR_NAME_TOO_LONG if the name given is to long to have been stored
+             OS_ERR_NAME_NOT_FOUND if the name was not found in the table
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+int32 OS_BinSemGetIdByName (uint32 *sem_id, const char *sem_name)
+{
+    /*
+     * Note: This function accesses the OS_bin_sem_table without locking that table's
+     * semaphore.
+     */
+    uint32 i;
+
+    if (sem_id == NULL || sem_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* a name too long wouldn't have been allowed in the first place
+     * so we definitely won't find a name too long*/
+    if (strlen(sem_name) >= OS_MAX_API_NAME)
+    {
+        return OS_ERR_NAME_TOO_LONG;
+    }
+
+    for (i = 0; i < OS_MAX_BIN_SEMAPHORES; i++)
+    {
+        if ( OS_bin_sem_table[i].free != TRUE &&
+           ( strcmp (OS_bin_sem_table[i].name , (char*) sem_name) == 0)
+           )
+        {
+            *sem_id = i;
+            return OS_SUCCESS;
+        }
+    }
+    /* The name was not found in the table,
+     *  or it was, and the sem_id isn't valid anymore */
+
+    return OS_ERR_NAME_NOT_FOUND;
+
+}/* end OS_BinSemGetIdByName */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_BinSemGetInfo
+
+    Purpose: This function will pass back a pointer to structure that contains
+             all of the relevant info( name and creator) about the specified binary
+             semaphore.
+
+    Returns: OS_ERR_INVALID_ID if the id passed in is not a valid semaphore
+             OS_INVALID_POINTER if the bin_prop pointer is null
+             OS_SUCCESS if success
+---------------------------------------------------------------------------------------*/
+
+int32 OS_BinSemGetInfo (uint32 sem_id, OS_bin_sem_prop_t *bin_prop)
+{
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_bin_sem_table_mut, 0 );  /* TODO: fix timings */
+    /* Check to see that the id given is valid */
+    if (sem_id >= OS_MAX_BIN_SEMAPHORES || OS_bin_sem_table[sem_id].free == TRUE)
+    {
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_bin_sem_table_mut );
+        return OS_ERR_INVALID_ID;
+    }
+
+    if (bin_prop == NULL)
+    {
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_bin_sem_table_mut );
+        return OS_INVALID_POINTER;
+    }
+
+    /* put the info into the structure */
+
+    bin_prop -> creator = OS_bin_sem_table[sem_id].creator;
+    bin_prop -> value = 0;
+    strcpy(bin_prop-> name, OS_bin_sem_table[sem_id].name);
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_bin_sem_table_mut );
+
+    return OS_SUCCESS;
+
+} /* end OS_BinSemGetInfo */
 
 /****************************************************************************************
                                   MUTEX API
