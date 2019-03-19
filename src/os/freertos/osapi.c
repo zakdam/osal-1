@@ -28,6 +28,8 @@
 #define UNINITIALIZED 0
 #define MAX_PRIORITY 255
 
+#define SEM_VALUE_MAX 255  /* TODO: has to be taken from right include file */ 
+
 #undef OS_DEBUG_PRINTF 
 
 #define OS_SHUTDOWN_MAGIC_NUMBER    0xABADC0DE
@@ -71,25 +73,23 @@ typedef struct
     int                creator;
 }OS_bin_sem_internal_record_t;
 
-#if 0
 /* Counting Semaphores */
 typedef struct
 {
-    int      free;
-    rtems_id id;
-    char     name [OS_MAX_API_NAME];
-    int      creator;
+    int                free;
+    SemaphoreHandle_t  count_sem_handle;
+    char               name [OS_MAX_API_NAME];
+    int                creator;
 }OS_count_sem_internal_record_t;
 
 /* Mutexes */
 typedef struct
 {
-    int             free;
-    rtems_id        id;
-    char            name [OS_MAX_API_NAME];
-    int             creator;
+    int                free;
+    SemaphoreHandle_t  mut_sem_handle;
+    char               name [OS_MAX_API_NAME];
+    int                creator;
 }OS_mut_sem_internal_record_t;
-#endif
 
 /* function pointer type */
 typedef void (*FuncPtr_t)(void);
@@ -98,20 +98,14 @@ typedef void (*FuncPtr_t)(void);
 OS_task_internal_record_t       OS_task_table          [OS_MAX_TASKS];
 OS_queue_internal_record_t      OS_queue_table         [OS_MAX_QUEUES];
 OS_bin_sem_internal_record_t    OS_bin_sem_table       [OS_MAX_BIN_SEMAPHORES];
-
-#if 0
 OS_count_sem_internal_record_t  OS_count_sem_table     [OS_MAX_COUNT_SEMAPHORES];
 OS_mut_sem_internal_record_t    OS_mut_sem_table       [OS_MAX_MUTEXES];
-#endif
 
 SemaphoreHandle_t OS_task_table_mut;
 SemaphoreHandle_t OS_queue_table_mut;
 SemaphoreHandle_t OS_bin_sem_table_mut;
-
-#if 0
-SemaphoreHandle_t OS_count_sem_table;
-SemaphoreHandle_t OS_mut_sem_table;
-#endif
+SemaphoreHandle_t OS_count_sem_table_mut;
+SemaphoreHandle_t OS_mut_sem_table_mut;
 
 uint32          OS_printf_enabled = TRUE;
 volatile uint32 OS_shutdown = FALSE;
@@ -141,7 +135,7 @@ int32 OS_API_Init(void)
         OS_task_table[i].free                = TRUE;
         OS_task_table[i].creator             = UNINITIALIZED;
         OS_task_table[i].delete_hook_pointer = NULL;
-        strcpy(OS_task_table[i].name,"");
+        strcpy(OS_task_table[i].name, "");
     }
 
     /* Initialize Message Queue Table */
@@ -149,36 +143,32 @@ int32 OS_API_Init(void)
     {
         OS_queue_table[i].free        = TRUE;
         OS_queue_table[i].creator     = UNINITIALIZED;
-        strcpy(OS_queue_table[i].name,"");
+        strcpy(OS_queue_table[i].name, "");
     }
 
-#if 0
     /* Initialize Binary Semaphore Table */
     for(i = 0; i < OS_MAX_BIN_SEMAPHORES; i++)
     {
         OS_bin_sem_table[i].free          = TRUE;
         OS_bin_sem_table[i].creator       = UNINITIALIZED;
-        strcpy(OS_bin_sem_table[i].name,"");
+        strcpy(OS_bin_sem_table[i].name, "");
     }
 
     /* Initialize Counting Semaphore Table */
     for(i = 0; i < OS_MAX_COUNT_SEMAPHORES; i++)
     {
         OS_count_sem_table[i].free        = TRUE;
-        OS_count_sem_table[i].id          = UNINITIALIZED;
         OS_count_sem_table[i].creator     = UNINITIALIZED;
-        OS_count_sem_table[i].name[0] = '\0';
+        strcpy(OS_count_sem_table[i].name, "");
     }
 
     /* Initialize Mutex Semaphore Table */
     for(i = 0; i < OS_MAX_MUTEXES; i++)
     {
         OS_mut_sem_table[i].free        = TRUE;
-        OS_mut_sem_table[i].id          = UNINITIALIZED;
         OS_mut_sem_table[i].creator     = UNINITIALIZED;
-        OS_mut_sem_table[i].name[0] = '\0';
+        strcpy(OS_mut_sem_table[i].name, "");
     }
-#endif
 
    /*
    ** Initialize the module loader
@@ -215,7 +205,6 @@ int32 OS_API_Init(void)
       return(return_code);
    }
 
-#if 0
    OS_bin_sem_table_mut = xSemaphoreCreateMutex();
    if( OS_bin_sem_table_mut == NULL )
    {
@@ -223,20 +212,19 @@ int32 OS_API_Init(void)
       return(return_code);
    }
 
-   OS_count_sem_table = xSemaphoreCreateMutex();
+   OS_count_sem_table_mut = xSemaphoreCreateMutex();
    if( OS_count_sem_table == NULL )
    {
       return_code = OS_ERROR;
       return(return_code);
    }
 
-   OS_mut_sem_table = xSemaphoreCreateMutex();
+   OS_mut_sem_table_mut = xSemaphoreCreateMutex();
    if( OS_mut_sem_table == NULL )
    {
       return_code = OS_ERROR;
       return(return_code);
    }
-#endif
 
 /* TODO: implement */
 //   /*
@@ -1426,8 +1414,6 @@ int32 OS_BinSemGive (uint32 sem_id)
     
 }/* end OS_BinSemGive */
 
-/* TODO: what is flush for FreeRTOS? */
-#if 0
 /*---------------------------------------------------------------------------------------
     Name: OS_BinSemFlush
 
@@ -1453,16 +1439,18 @@ int32 OS_BinSemFlush (uint32 sem_id)
         return OS_ERR_INVALID_ID;
     }
 
+/* TODO: what is flush for FreeRTOS? */
+    #if 0
     /* Flush VxWorks Semaphore */
     if(semFlush(OS_bin_sem_table[sem_id].id) != OK)
     {
         return OS_SEM_FAILURE;
     }
+    #endif
 
     return OS_SUCCESS;
 
 }/* end OS_BinSemFlush */
-#endif
 
 /*---------------------------------------------------------------------------------------
     Name:    OS_BinSemTake
@@ -1655,6 +1643,785 @@ int32 OS_BinSemGetInfo (uint32 sem_id, OS_bin_sem_prop_t *bin_prop)
     return OS_SUCCESS;
 
 } /* end OS_BinSemGetInfo */
+
+/*---------------------------------------------------------------------------------------
+   Name: OS_CountSemCreate
+
+   Purpose: Creates a counting semaphore with initial value specified by
+            sem_initial_value and name specified by sem_name. sem_id will be
+            returned to the caller
+
+   Returns: OS_INVALID_POINTER if sen name or sem_id are NULL
+            OS_ERR_NAME_TOO_LONG if the name given is too long
+            OS_ERR_NO_FREE_IDS if all of the semaphore ids are taken
+            OS_ERR_NAME_TAKEN if this is already the name of a counting semaphore
+            OS_SEM_FAILURE if the OS call failed
+            OS_SUCCESS if success
+
+
+   Notes: The options parameter is unused. 
+---------------------------------------------------------------------------------------*/
+
+int32 OS_CountSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_value,
+                        uint32 options)
+{
+    uint32 possible_semid;
+    uint32 i;
+    SemaphoreHandle_t count_sem_handle;  /* TODO: init with something */
+
+    /*
+    ** Check Parameters
+    */
+    if (sem_id == NULL || sem_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+    
+    /*
+    ** Verify that the semaphore maximum value is not too high
+    */ 
+    if ( sem_initial_value > SEM_VALUE_MAX )
+    {
+        return OS_INVALID_SEM_VALUE;
+    }
+
+    /* 
+    ** we don't want to allow names too long
+    ** if truncated, two names might be the same 
+    */
+    if (strlen(sem_name) >= OS_MAX_API_NAME)
+    {
+        return OS_ERR_NAME_TOO_LONG;
+    }
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_count_sem_table_mut, portMAX_DELAY );
+
+    for (possible_semid = 0; possible_semid < OS_MAX_COUNT_SEMAPHORES; possible_semid++)
+    {
+        if (OS_count_sem_table[possible_semid].free == TRUE)
+            break;
+    }
+
+    if((possible_semid >= OS_MAX_COUNT_SEMAPHORES) ||
+       (OS_count_sem_table[possible_semid].free != TRUE))
+    {
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_count_sem_table_mut );
+        return OS_ERR_NO_FREE_IDS;
+    }
+
+    /* Check to see if the name is already taken */
+    for (i = 0; i < OS_MAX_COUNT_SEMAPHORES; i++)
+    {
+        if ((OS_count_sem_table[i].free == FALSE) &&
+                strcmp ((char*)sem_name, OS_count_sem_table[i].name) == 0)
+        {
+            /*
+            ** Unlock
+            */
+            xSemaphoreGive( OS_count_sem_table_mut );
+            return OS_ERR_NAME_TAKEN;
+        }
+    }
+    OS_count_sem_table[possible_semid].free = FALSE;
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_count_sem_table_mut );
+
+    /* Create FreeRTOS Semaphore */
+/* TODO: how to fix this? */
+    count_sem_handle = xSemaphoreCreateCounting(16, sem_initial_value);
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_count_sem_table_mut, portMAX_DELAY );
+
+    /* check if semCCreate failed */
+    if(count_sem_handle == NULL)
+    {
+
+        OS_count_sem_table[possible_semid].free = TRUE;
+
+        /*
+        ** Unlock
+        */ 
+        xSemaphoreGive( OS_count_sem_table_mut );
+        return OS_SEM_FAILURE;
+    }
+
+    /* Set the sem_id to the one that we found available */
+    /* Set the name of the semaphore,creator and free as well */
+
+    *sem_id = possible_semid;
+
+    OS_count_sem_table[*sem_id].count_sem_handle = count_sem_handle;
+
+    OS_count_sem_table[*sem_id].free = FALSE;
+    strcpy(OS_count_sem_table[*sem_id].name , (char*) sem_name);
+    OS_count_sem_table[*sem_id].creator = OS_FindCreator();
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_count_sem_table_mut );
+
+    return OS_SUCCESS;
+
+}/* end OS_CountSemCreate */
+
+/*--------------------------------------------------------------------------------------
+     Name: OS_CountSemDelete
+
+    Purpose: Deletes the specified Counting Semaphore.
+
+    Returns: OS_ERR_INVALID_ID if the id passed in is not a valid counting semaphore
+             OS_SEM_FAILURE the OS call failed
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+int32 OS_CountSemDelete (uint32 sem_id)
+{
+    /* 
+     * Note: This function accesses the OS_count_sem_table without locking that table's
+     * semaphore.
+     */
+
+    /*
+    ** Check to see if this sem_id is valid 
+    */
+    if (sem_id >= OS_MAX_COUNT_SEMAPHORES || OS_count_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* FreeRTOS doesn't have return values for this operation */
+    vSemaphoreDelete(OS_count_sem_table[sem_id].count_sem_handle);
+
+    /* 
+    ** Remove the Id from the table, and its name, so that it cannot be found again 
+    */
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_count_sem_table_mut, portMAX_DELAY );
+
+    OS_count_sem_table[sem_id].free = TRUE;
+    strcpy(OS_count_sem_table[sem_id].name, "");
+    OS_count_sem_table[sem_id].creator = UNINITIALIZED;
+    OS_count_sem_table[sem_id].count_sem_handle = NULL;  /* TODO: how to fix? */
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_count_sem_table_mut );
+
+    return OS_SUCCESS;
+
+}/* end OS_CountSemDelete */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_CountSemGive
+
+    Purpose: The function  unlocks the semaphore referenced by sem_id by performing
+             a semaphore unlock operation on that semaphore.If the semaphore value 
+             resulting from this operation is positive, then no threads were blocked             
+             waiting for the semaphore to become unlocked; the semaphore value is
+             simply incremented for this semaphore.
+
+    
+    Returns: OS_SEM_FAILURE the semaphore was not previously  initialized or is not
+             in the array of semaphores defined by the system
+             OS_ERR_INVALID_ID if the id passed in is not a counting semaphore
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+
+int32 OS_CountSemGive (uint32 sem_id)
+{
+    /*
+     * Note: This function accesses the OS_count_sem_table without locking that table's
+     * semaphore.
+     */
+    int32 return_code = OS_SUCCESS;
+
+    /* 
+    ** Check Parameters 
+    */
+    if (sem_id >= OS_MAX_COUNT_SEMAPHORES || OS_count_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    if (xSemaphoreGive( OS_count_sem_table[sem_id].count_sem_handle ) == pdPASS)
+    {
+        return_code =  OS_SUCCESS;
+    }
+    else
+    {
+        return_code =  OS_SEM_FAILURE;
+    }
+
+    return(return_code);
+
+}/* end OS_CountSemGive */
+
+/*---------------------------------------------------------------------------------------
+    Name:    OS_CountSemTake
+
+    Purpose: The locks the semaphore referenced by sem_id by performing a
+             semaphore lock operation on that semaphore.If the semaphore value
+             is currently zero, then the calling thread shall not return from
+             the call until it either locks the semaphore or the call is
+             interrupted by a signal.
+
+    Return:  OS_SEM_FAILURE : the semaphore was not previously initialized
+             or is not in the array of semaphores defined by the system
+             OS_ERR_INVALID_ID the Id passed in is not a valid countar semaphore
+             OS_SEM_FAILURE if the OS call failed
+             OS_SUCCESS if success
+
+----------------------------------------------------------------------------------------*/
+
+int32 OS_CountSemTake (uint32 sem_id)
+{
+    /*
+     * Note: This function accesses the OS_count_sem_table without locking that table's
+     * semaphore.
+     */
+    int32 return_code;
+
+    /* 
+    ** Check Parameters 
+    */
+    if (sem_id >= OS_MAX_COUNT_SEMAPHORES || OS_count_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* 
+    ** Give FreeRTOS Semaphore 
+    */
+    if (xSemaphoreTake( OS_count_sem_table[sem_id].count_sem_handle, portMAX_DELAY ) == pdPASS)
+    {
+        return_code = OS_SUCCESS;
+    }
+    else
+    {
+        return_code = OS_SEM_FAILURE;
+    }
+
+    return(return_code);
+
+}/* end OS_CountSemTake */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_CountSemTimedWait
+
+    Purpose: The function locks the semaphore referenced by sem_id . However,
+             if the semaphore cannot be locked without waiting for another process
+             or thread to unlock the semaphore , this wait shall be terminated when
+             the specified timeout ,msecs, expires.
+
+    Returns: OS_SEM_TIMEOUT if semaphore was not relinquished in time
+             OS_SUCCESS if success
+             OS_SEM_FAILURE the semaphore was not previously initialized or is not
+             in the array of semaphores defined by the system
+             OS_ERR_INVALID_ID if the ID passed in is not a valid semaphore ID
+----------------------------------------------------------------------------------------*/
+
+int32 OS_CountSemTimedWait (uint32 sem_id, uint32 msecs)
+{
+    /*
+     * Note: This function accesses the OS_count_sem_table without locking that table's
+     * semaphore.
+     */
+    int32 return_code = OS_SUCCESS;
+    uint32 sys_ticks;
+    BaseType_t status;
+
+    /* msecs rounded to the closest system tick count */
+    sys_ticks = OS_Milli2Ticks(msecs);
+
+    /* 
+    ** Check Parameters 
+    */
+    if( (sem_id >= OS_MAX_COUNT_SEMAPHORES) || (OS_count_sem_table[sem_id].free == TRUE) )
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* 
+    ** Give VxWorks Semaphore 
+    */
+    status = xSemaphoreTake( OS_count_sem_table[sem_id].count_sem_handle, sys_ticks );
+    if (status == pdPASS)
+    {
+       return_code = OS_SUCCESS;
+    }
+    /* TODO: how to distinguish timeout? */
+    else
+    {
+       return_code =  OS_SEM_FAILURE;
+    }
+
+    return(return_code);
+
+}/* end OS_CountSemTimedWait */
+
+/*--------------------------------------------------------------------------------------
+    Name: OS_CountSemGetIdByName
+
+    Purpose: This function tries to find a counting sem Id given the name of a count_sem
+             The id is returned through sem_id
+
+    Returns: OS_INVALID_POINTER is semid or sem_name are NULL pointers
+             OS_ERR_NAME_TOO_LONG if the name given is to long to have been stored
+             OS_ERR_NAME_NOT_FOUND if the name was not found in the table
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+
+int32 OS_CountSemGetIdByName (uint32 *sem_id, const char *sem_name)
+{
+    /*
+     * Note: This function accesses the OS_count_sem_table without locking that table's
+     * semaphore.
+     */
+    uint32 i;
+
+    /*
+    ** Check Parameters
+    */
+    if (sem_id == NULL || sem_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* 
+    ** A name too long wouldn't have been allowed in the first place
+    ** so we definitely won't find a name too long
+    */
+    if (strlen(sem_name) >= OS_MAX_API_NAME)
+    {
+        return OS_ERR_NAME_TOO_LONG;
+    }
+
+    for (i = 0; i < OS_MAX_COUNT_SEMAPHORES; i++)
+    {
+        if ( OS_count_sem_table[i].free != TRUE &&
+           ( strcmp (OS_count_sem_table[i].name , (char*) sem_name) == 0))
+        {
+            *sem_id = i;
+            return OS_SUCCESS;
+        }
+    }
+    /* 
+    ** The name was not found in the table,
+    **  or it was, and the sem_id isn't valid anymore 
+    */
+
+    return OS_ERR_NAME_NOT_FOUND;
+
+}/* end OS_CountSemGetIdByName */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_CountSemGetInfo
+
+    Purpose: This function will pass back a pointer to structure that contains
+             all of the relevant info( name and creator) about the specified counting
+             semaphore.
+
+    Returns: OS_ERR_INVALID_ID if the id passed in is not a valid semaphore
+             OS_INVALID_POINTER if the count_prop pointer is null
+             OS_SUCCESS if success
+---------------------------------------------------------------------------------------*/
+
+int32 OS_CountSemGetInfo (uint32 sem_id, OS_count_sem_prop_t *count_prop)
+{
+    /* 
+     * Note: This function performs some accesses to the OS_count_sem_table
+     * without locking that table's semaphore.
+     */
+
+    /*
+    ** Check to see that the id given is valid 
+    */
+    if (sem_id >= OS_MAX_COUNT_SEMAPHORES || OS_count_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    if (count_prop == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+    
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_count_sem_table_mut, portMAX_DELAY );
+
+    /* put the info into the stucture */
+    count_prop -> creator = OS_count_sem_table[sem_id].creator;
+    strcpy(count_prop -> name, OS_count_sem_table[sem_id].name);
+    count_prop -> value = 0; /* will be deprecated */
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_count_sem_table_mut );
+
+    return OS_SUCCESS;
+
+} /* end OS_CountSemGetInfo */
+
+
+/****************************************************************************************
+                                  MUTEX API
+****************************************************************************************/
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_MutSemCreate
+
+    Purpose: Creates a mutex semaphore initially full.
+
+    Returns: OS_INVALID_POINTER if sem_id or sem_name are NULL
+             OS_ERR_NAME_TOO_LONG if the sem_name is too long to be stored
+             OS_ERR_NO_FREE_IDS if there are no more free mutex Ids
+             OS_ERR_NAME_TAKEN if there is already a mutex with the same name
+             OS_SEM_FAILURE if the OS call failed
+             OS_SUCCESS if success
+
+    Notes: the options parameter is not used in this implementation
+
+---------------------------------------------------------------------------------------*/
+
+int32 OS_MutSemCreate (uint32 *sem_id, const char *sem_name, uint32 options)
+{
+    uint32 possible_semid;
+    uint32 i;
+    SemaphoreHandle_t mut_sem_handle;  /* TODO: init with something */
+
+    /* Check Parameters */
+    if (sem_id == NULL || sem_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* we don't want to allow names too long*/
+    /* if truncated, two names might be the same */
+    if (strlen(sem_name) >= OS_MAX_API_NAME)
+    {
+       return OS_ERR_NAME_TOO_LONG;
+    }
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_mut_sem_table_mut, portMAX_DELAY );
+
+    for (possible_semid = 0; possible_semid < OS_MAX_MUTEXES; possible_semid++)
+    {
+        if (OS_mut_sem_table[possible_semid].free == TRUE)
+        {
+            break;
+        }
+    }
+
+    if( (possible_semid >= OS_MAX_MUTEXES) ||
+        (OS_mut_sem_table[possible_semid].free != TRUE) )
+    {
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_mut_sem_table_mut );
+        return OS_ERR_NO_FREE_IDS;
+    }
+
+    /* Check to see if the name is already taken */
+    for (i = 0; i < OS_MAX_MUTEXES; i++)
+    {
+        if ((OS_mut_sem_table[i].free == FALSE) &&
+            strcmp ((char*) sem_name, OS_mut_sem_table[i].name) == 0)
+        {
+            /*
+            ** Unlock
+            */
+            xSemaphoreGive( OS_mut_sem_table_mut );
+            return OS_ERR_NAME_TAKEN;
+        }
+    }
+    OS_mut_sem_table[possible_semid].free = FALSE;
+
+    /* Create FreeRTOS Semaphore */
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_mut_sem_table_mut );
+
+    mut_sem_handle = xSemaphoreCreateMutex();
+
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_mut_sem_table_mut, portMAX_DELAY );
+
+     /* check if xSemaphoreCreateMutex() failed */
+    if(mut_sem_handle == NULL)
+    {
+        OS_mut_sem_table[possible_semid].free = TRUE;
+        /*
+        ** Unlock
+        */
+        xSemaphoreGive( OS_mut_sem_table_mut );
+        return OS_SEM_FAILURE;
+    }
+
+    /* Set the sem_id to the one that we found open */
+    /* Set the name of the semaphore, creator, and free as well */
+
+    *sem_id = possible_semid;
+
+    OS_mut_sem_table[*sem_id].mut_sem_handle = mut_sem_handle;
+    strcpy(OS_mut_sem_table[*sem_id].name, (char*)sem_name);
+    OS_mut_sem_table[*sem_id].free = FALSE;
+    OS_mut_sem_table[*sem_id].creator = OS_FindCreator();
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_mut_sem_table_mut );
+
+    return OS_SUCCESS;
+
+}/* end OS_MutSemCreate */
+
+/*--------------------------------------------------------------------------------------
+     Name: OS_MutSemDelete
+
+    Purpose: Deletes the specified Mutex Semaphore.
+
+    Returns: OS_ERR_INVALID_ID if the id passed in is not a valid mutex
+             OS_SEM_FAILURE if the OS call failed
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+
+int32 OS_MutSemDelete (uint32 sem_id)
+{
+    /*
+     * Note: This function performs some access to the OS_mut_sem_table without
+     * locking that table's semaphore.
+     */
+    /* Check to see if this sem_id is valid   */
+    if (sem_id >= OS_MAX_MUTEXES || OS_mut_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* FreeRTOS doesn't have return values for this operation */
+    vSemaphoreDelete( OS_mut_sem_table[sem_id].mut_sem_handle );
+
+    /* Delete its presence in the table */
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_mut_sem_table_mut, portMAX_DELAY );
+
+    OS_mut_sem_table[sem_id].free = TRUE;
+    OS_mut_sem_table[sem_id].mut_sem_handle = NULL;  /* TODO: fix it */
+    strcpy(OS_mut_sem_table[sem_id].name, "");
+    OS_mut_sem_table[sem_id].creator = UNINITIALIZED;
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_mut_sem_table_mut );
+
+    return OS_SUCCESS;
+
+}/* end OS_MutSemDelete */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_MutSemGive
+
+    Purpose: The function releases the mutex object referenced by sem_id.The
+             manner in which a mutex is released is dependent upon the mutex's type
+             attribute.  If there are threads blocked on the mutex object referenced by
+             mutex when this function is called, resulting in the mutex becoming
+             available, the scheduling policy shall determine which thread shall
+             acquire the mutex.
+
+    Returns: OS_SUCCESS if success
+             OS_SEM_FAILURE if the semaphore was not previously  initialized
+             OS_ERR_INVALID_ID if the id passed in is not a valid mutex
+
+---------------------------------------------------------------------------------------*/
+
+int32 OS_MutSemGive (uint32 sem_id)
+{
+    /*
+     * Note: This function accesses the OS_mut_sem_table_sem without locking that table's
+     * semaphore.
+     */
+    /* Check Parameters */
+    if (sem_id >= OS_MAX_MUTEXES || OS_mut_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    /* Give FreeRTOS Semaphore */
+    if (xSemaphoreGive( OS_mut_sem_table[sem_id].mut_sem_handle ) != pdPASS)
+    {
+        return OS_SEM_FAILURE;
+    }
+
+    return OS_SUCCESS;
+
+}/* end OS_MutSemGive */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_MutSemTake
+
+    Purpose: The mutex object referenced by sem_id shall be locked by calling this
+             function. If the mutex is already locked, the calling thread shall
+             block until the mutex becomes available. This operation shall return
+             with the mutex object referenced by mutex in the locked state with the
+             calling thread as its owner.
+
+    Returns: OS_SUCCESS if success
+             OS_SEM_FAILURE if the semaphore was not previously initialized or is
+             not in the array of semaphores defined by the system
+             OS_ERR_INVALID_ID the id passed in is not a valid mutex
+---------------------------------------------------------------------------------------*/
+
+int32 OS_MutSemTake (uint32 sem_id)
+{
+   /*
+    * Note: This function accesses the OS_mut_sem_table_sem without locking that table's
+    * semaphore.
+    */
+   /* Check Parameters */
+   if(sem_id >= OS_MAX_MUTEXES || OS_mut_sem_table[sem_id].free == TRUE)
+   {
+        return OS_ERR_INVALID_ID;
+   }
+   /* Take FreeRTOS Semaphore */
+   if (xSemaphoreTake( OS_mut_sem_table[sem_id].mut_sem_handle, portMAX_DELAY ) != pdPASS)
+   {
+        return OS_SEM_FAILURE;
+   }
+
+   return OS_SUCCESS;
+
+}/* end OS_MutSemGive */
+
+/*--------------------------------------------------------------------------------------
+    Name: OS_MutSemGetIdByName
+
+    Purpose: This function tries to find a mutex sem Id given the name of a bin_sem
+             The id is returned through sem_id
+
+    Returns: OS_INVALID_POINTER is semid or sem_name are NULL pointers
+             OS_ERR_NAME_TOO_LONG if the name given is to long to have been stored
+             OS_ERR_NAME_NOT_FOUND if the name was not found in the table
+             OS_SUCCESS if success
+
+---------------------------------------------------------------------------------------*/
+
+int32 OS_MutSemGetIdByName (uint32 *sem_id, const char *sem_name)
+{
+    /*
+     * Note: This function accesses the OS_mut_sem_table_sem without locking that table's
+     * semaphore.
+     */
+    uint32 i;
+
+    if(sem_id == NULL || sem_name == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* a name too long wouldn't have been allowed in the first place
+     * so we definitely won't find a name too long*/
+
+    if (strlen(sem_name) >= OS_MAX_API_NAME)
+    {
+       return OS_ERR_NAME_TOO_LONG;
+    }
+
+    for (i = 0; i < OS_MAX_MUTEXES; i++)
+    {
+        if ((OS_mut_sem_table[i].free != TRUE) &&
+           (strcmp (OS_mut_sem_table[i].name, (char*) sem_name) == 0))
+        {
+            *sem_id = i;
+            return OS_SUCCESS;
+        }
+    }
+
+    /* The name was not found in the table,
+     *  or it was, and the sem_id isn't valid anymore */
+    return OS_ERR_NAME_NOT_FOUND;
+
+}/* end OS_MutSemGetIdByName */
+
+/*---------------------------------------------------------------------------------------
+    Name: OS_MutSemGetInfo
+
+    Purpose: This function will pass back a pointer to structure that contains
+             all of the relevant info( name and creator) about the specified mutex
+             semaphore.
+
+    Returns: OS_ERR_INVALID_ID if the id passed in is not a valid semaphore
+             OS_INVALID_POINTER if the mut_prop pointer is null
+             OS_SUCCESS if success
+---------------------------------------------------------------------------------------*/
+
+int32 OS_MutSemGetInfo (uint32 sem_id, OS_mut_sem_prop_t *mut_prop)
+{
+    /*
+     * Note: This function performs some accesses to the OS_mut_sem_table without
+     * locking that table's semaphore, but locks the table while copying the data.
+     */
+    /* Check to see that the id given is valid */
+    if (sem_id >= OS_MAX_MUTEXES || OS_mut_sem_table[sem_id].free == TRUE)
+    {
+        return OS_ERR_INVALID_ID;
+    }
+
+    if (mut_prop == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    /* put the info into the stucture */
+    /*
+    ** Lock
+    */
+    xSemaphoreTake( OS_mut_sem_table_mut, portMAX_DELAY );
+
+    mut_prop -> creator = OS_mut_sem_table[sem_id].creator;
+    strcpy(mut_prop-> name, OS_mut_sem_table[sem_id].name);
+
+    /*
+    ** Unlock
+    */
+    xSemaphoreGive( OS_mut_sem_table_mut );
+
+    return OS_SUCCESS;
+
+} /* end OS_MutSemGetInfo */
 
 /****************************************************************************************
                                   MUTEX API
