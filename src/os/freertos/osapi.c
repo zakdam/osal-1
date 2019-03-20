@@ -94,6 +94,8 @@ typedef struct
 /* function pointer type */
 typedef void (*FuncPtr_t)(void);
 
+static uint32                OS_task_key;  /* TODO: check if it's really needed  */
+
 /* Tables where the OS object information is stored */
 OS_task_internal_record_t       OS_task_table          [OS_MAX_TASKS];
 OS_queue_internal_record_t      OS_queue_table         [OS_MAX_QUEUES];
@@ -263,6 +265,42 @@ void OS_ApplicationExit(int32 Status)
 ---------------------------------------------------------------------------------------*/
 void OS_DeleteAllObjects       (void)
 {
+    uint32 i;
+
+    for (i = 0; i < OS_MAX_TASKS; ++i)
+    {
+        OS_TaskDelete(i);
+    }
+    for (i = 0; i < OS_MAX_QUEUES; ++i)
+    {
+        OS_QueueDelete(i);
+    }
+    for (i = 0; i < OS_MAX_MUTEXES; ++i)
+    {
+        OS_MutSemDelete(i);
+    }
+    for (i = 0; i < OS_MAX_COUNT_SEMAPHORES; ++i)
+    {
+        OS_CountSemDelete(i);
+    }
+    for (i = 0; i < OS_MAX_BIN_SEMAPHORES; ++i)
+    {
+        OS_BinSemDelete(i);
+    }
+#if 0  /* needs to be implemented */
+    for (i = 0; i < OS_MAX_TIMERS; ++i)
+    {
+        OS_TimerDelete(i);
+    }
+    for (i = 0; i < OS_MAX_MODULES; ++i)
+    {
+        OS_ModuleUnload(i);
+    }
+    for (i = 0; i < OS_MAX_NUM_OPEN_FILES; ++i)
+    {
+        OS_close(i);
+    }
+#endif
 }
 
 
@@ -300,6 +338,8 @@ void OS_IdleLoop()
 ---------------------------------------------------------------------------------------*/
 void OS_ApplicationShutdown(uint8 flag)
 {
+  /* TODO: is it correct? */
+  vTaskEndScheduler();
 }
 
 
@@ -466,8 +506,13 @@ int32 OS_TaskDelete (uint32 task_id)
        (*FunctionPointer)();
     }
 
+    printf("deleting: %ld\n", task_id);
+    printf("deleting: 0x%08x\n", OS_task_table[task_id].task_handle);
+
     /* Try to delete the task */
     vTaskDelete(OS_task_table[task_id].task_handle);
+
+    printf("deleted: %ld\n", task_id);
 
     /*
      * Now that the task is deleted, remove its 
@@ -640,7 +685,9 @@ int32 OS_TaskRegister (void)
 ---------------------------------------------------------------------------------------*/
 uint32 OS_TaskGetId (void)
 {
-    return (0);
+  /* TODO: is it correct? */
+    return (uint32) OS_task_key;
+
 }/* end OS_TaskGetId */
 
 /*--------------------------------------------------------------------------------------
@@ -700,7 +747,7 @@ int32 OS_TaskGetIdByName (uint32 *task_id, const char *task_name)
              OS_SUCCESS if it copied all of the relevant info over
  
 ---------------------------------------------------------------------------------------*/
-int32 OS_TaskGetInfo (uint32 task_id, OS_task_prop_t *task_prop)  
+int32 OS_TaskGetInfo (uint32 task_id, OS_task_prop_t *task_prop)
 {
     /*
     ** Lock
@@ -716,7 +763,7 @@ int32 OS_TaskGetInfo (uint32 task_id, OS_task_prop_t *task_prop)
         return OS_ERR_INVALID_ID;
     }
 
-    if( task_prop == NULL)
+    if (task_prop == NULL)
     {
         /*
         ** Unlock
