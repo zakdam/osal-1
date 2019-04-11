@@ -99,5 +99,7 @@ int UtTest_Run(void)
 
     UtList_Reset(&UtTestDataBase);
 
+    UT_BSP_StopTest();
+
     return (UtAssert_GetFailCount() > 0);
 }

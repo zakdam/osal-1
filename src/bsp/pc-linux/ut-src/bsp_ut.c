@@ -32,6 +32,7 @@
 
 #include "utbsp.h"
 #include "uttest.h"
+#include "osapi.h"
 
 
 /*
@@ -256,6 +257,11 @@ void UT_BSP_EndTest(const UtAssert_TestCounter_t *TestCounters)
    exit(status);
 }
 
+void UT_BSP_StopTest(void)
+{
+   OS_ApplicationShutdown(TRUE);
+}
+
 /******************************************************************************
 **  Function:  main()
 **
@@ -284,6 +290,9 @@ int main(int argc, char *argv[])
    ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
    */
    UtTest_Run();
+
+   OS_IdleLoop();
+
    UT_BSP_EndTest(UtAssert_GetCounters());
 
    /* Should typically never get here */

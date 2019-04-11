@@ -320,10 +320,7 @@ void OS_IdleLoop()
    /* Start the scheduler itself. */
    vTaskStartScheduler();
 
-   /* This code will only be reached if the idle task could not be created inside 
-   vTaskStartScheduler(). An infinite loop is used to assist debugging by 
-   ensuring this scenario does not result in main() exiting. */
-   while (1);
+   /* TODO: do we need while(1) here? */
 }
 
 
@@ -506,13 +503,8 @@ int32 OS_TaskDelete (uint32 task_id)
        (*FunctionPointer)();
     }
 
-    printf("deleting: %ld\n", task_id);
-    printf("deleting: 0x%08x\n", OS_task_table[task_id].task_handle);
-
     /* Try to delete the task */
     vTaskDelete(OS_task_table[task_id].task_handle);
-
-    printf("deleted: %ld\n", task_id);
 
     /*
      * Now that the task is deleted, remove its 
