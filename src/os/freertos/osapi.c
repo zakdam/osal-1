@@ -2231,7 +2231,7 @@ int32 OS_MutSemCreate (uint32 *sem_id, const char *sem_name, uint32 options)
     */
     xSemaphoreGive( OS_mut_sem_table_mut );
 
-    mut_sem_handle = xSemaphoreCreateMutex();
+    mut_sem_handle = xSemaphoreCreateRecursiveMutex();
 
     /*
     ** Lock
@@ -2257,7 +2257,7 @@ int32 OS_MutSemCreate (uint32 *sem_id, const char *sem_name, uint32 options)
     OS_mut_sem_table[*sem_id].mut_sem_handle = mut_sem_handle;
     strcpy(OS_mut_sem_table[*sem_id].name, (char*)sem_name);
     OS_mut_sem_table[*sem_id].free = FALSE;
-    OS_mut_sem_table[*sem_id].creator = OS_FindCreator();
+    //OS_mut_sem_table[*sem_id].creator = OS_FindCreator(); /* TODO: fix this */
 
     /*
     ** Unlock
@@ -2343,7 +2343,7 @@ int32 OS_MutSemGive (uint32 sem_id)
     }
 
     /* Give FreeRTOS Semaphore */
-    if (xSemaphoreGive( OS_mut_sem_table[sem_id].mut_sem_handle ) != pdPASS)
+    if (xSemaphoreGiveRecursive( OS_mut_sem_table[sem_id].mut_sem_handle ) != pdPASS)
     {
         return OS_SEM_FAILURE;
     }
@@ -2379,7 +2379,7 @@ int32 OS_MutSemTake (uint32 sem_id)
         return OS_ERR_INVALID_ID;
    }
    /* Take FreeRTOS Semaphore */
-   if (xSemaphoreTake( OS_mut_sem_table[sem_id].mut_sem_handle, portMAX_DELAY ) != pdPASS)
+   if (xSemaphoreTakeRecursive( OS_mut_sem_table[sem_id].mut_sem_handle, portMAX_DELAY ) != pdPASS)
    {
         return OS_SEM_FAILURE;
    }
