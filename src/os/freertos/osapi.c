@@ -1351,7 +1351,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
         return OS_SEM_FAILURE;
     }
 
-    if (sem_initial_value = 1)
+    if (sem_initial_value == 1)
     {
       /* binary semaphores created using xSemaphoreCreateBinary() are created in a state 
       such that the the semaphore must first be 'given' before it can be 'taken'.*/
