@@ -558,7 +558,7 @@ void OS_TaskExit()
     */
     xSemaphoreGive( OS_task_table_mut );
 
-    /* TODO: find FreeRTOS alternative */
+    vTaskDelete( NULL );
 
 }/*end OS_TaskExit */
 /*---------------------------------------------------------------------------------------
