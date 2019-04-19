@@ -52,10 +52,5 @@ void task(void)
       counter += 1;
 
       OS_TaskDelay(500);
-
-      if ( OS_TaskDelete( task_id ) != OS_SUCCESS )
-      {
-         OS_printf("Error creating Task\n");
-      }
     }
 }
