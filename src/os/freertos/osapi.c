@@ -1590,7 +1590,7 @@ int32 OS_BinSemTimedWait (uint32 sem_id, uint32 msecs)
 
     sys_ticks = OS_Milli2Ticks(msecs);
 
-    /* Wait for VxWorks Semaphore
+    /* Wait for FreeRTOS Semaphore
      */
     status = xSemaphoreTake( OS_bin_sem_table[sem_id].bin_sem_handle, sys_ticks );  /* TODO fix the ticks? */
     if (status == pdPASS)
@@ -2022,7 +2022,7 @@ int32 OS_CountSemTimedWait (uint32 sem_id, uint32 msecs)
     }
 
     /* 
-    ** Give VxWorks Semaphore 
+    ** Give FreeRTOS Semaphore 
     */
     status = xSemaphoreTake( OS_count_sem_table[sem_id].count_sem_handle, sys_ticks );
     if (status == pdPASS)
@@ -2558,7 +2558,11 @@ int32 OS_Tick2Micros (void)
 ---------------------------------------------------------------------------------------*/
 int32 OS_Milli2Ticks(uint32 milli_seconds)
 {
-    return(0);
+    uint32 num_of_ticks;
+
+    num_of_ticks = pdMS_TO_TICKS( milli_seconds );
+
+    return (num_of_ticks);
 }
 
 /*---------------------------------------------------------------------------------------
@@ -2569,6 +2573,19 @@ int32 OS_Milli2Ticks(uint32 milli_seconds)
 
 int32 OS_GetLocalTime(OS_time_t *time_struct)
 {
+    int               status;
+    TickType_t        tick_count;
+
+    if (time_struct == NULL)
+    {
+        return OS_INVALID_POINTER;
+    }
+
+    tick_count = xTaskGetTickCount();
+
+    time_struct -> seconds = tick_count / configTICK_RATE_HZ;
+    time_struct -> microsecs = (tick_count % configTICK_RATE_HZ) * 1e6 / configTICK_RATE_HZ;
+
     return (OS_SUCCESS);
 }/* end OS_GetLocalTime */
 
