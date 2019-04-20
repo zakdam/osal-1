@@ -1592,15 +1592,17 @@ int32 OS_BinSemTimedWait (uint32 sem_id, uint32 msecs)
 
     /* Wait for FreeRTOS Semaphore
      */
-    status = xSemaphoreTake( OS_bin_sem_table[sem_id].bin_sem_handle, sys_ticks );  /* TODO fix the ticks? */
+    status = xSemaphoreTake( OS_bin_sem_table[sem_id].bin_sem_handle, sys_ticks );
     if (status == pdPASS)
     {
-       return OS_SUCCESS;
+        /* TODO: check for the value? (> 0?) */
+        OS_bin_sem_table[sem_id].current_value --;
+        return OS_SUCCESS;
     }
-/* TODO: is there a way to find if timeout happened? */
+/* TODO: there is no way to distinguish between timeout and fail */
     else
     {
-       return OS_SEM_FAILURE;
+        return OS_SEM_TIMEOUT;
     }
 
 }/* end OS_BinSemTimedWait */
@@ -2573,7 +2575,6 @@ int32 OS_Milli2Ticks(uint32 milli_seconds)
 
 int32 OS_GetLocalTime(OS_time_t *time_struct)
 {
-    int               status;
     TickType_t        tick_count;
 
     if (time_struct == NULL)
