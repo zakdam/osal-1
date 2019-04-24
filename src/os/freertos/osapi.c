@@ -15,6 +15,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "event_groups.h"
 
 /*
 ** User defined include files
@@ -34,6 +35,9 @@
 
 #define OS_SHUTDOWN_MAGIC_NUMBER    0xABADC0DE
 
+#define egBIN_SEM_STATE_BIT    (0x01)
+#define egBIN_SEM_FLUSH_BIT    (0x02)
+
 /*
 ** Global data for the API
 */
@@ -46,7 +50,7 @@
 typedef struct
 {
     int              free;
-    TaskHandle_t     task_handle;  /* TODO: check */
+    TaskHandle_t     task_handle;
     char             name [OS_MAX_API_NAME];
     int              creator;
     uint32           stack_size;
@@ -67,12 +71,12 @@ typedef struct
 /* Binary Semaphores */
 typedef struct
 {
-    int                free;
-    SemaphoreHandle_t  bin_sem_handle;
-    char               name [OS_MAX_API_NAME];
-    int                creator;
-    int                max_value;
-    int                current_value;
+    int                 free;
+    EventGroupHandle_t  event_group_handle;
+    char                name [OS_MAX_API_NAME];
+    int                 creator;
+    int                 max_value;
+    int                 current_value;
 }OS_bin_sem_internal_record_t;
 
 /* Counting Semaphores */
@@ -1266,7 +1270,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
     /* the current candidate for the new sem id */
     uint32 possible_semid;
     uint32 i;
-    SemaphoreHandle_t bin_sem_handle;  /* TODO: init with something */
+    EventGroupHandle_t event_group_handle;
 
     if (sem_id == NULL || sem_name == NULL)
     {
@@ -1333,7 +1337,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
     }
     
     /* Create FreeRTOS Semaphore */
-    bin_sem_handle = xSemaphoreCreateBinary();
+    event_group_handle = xEventGroupCreate();
 
     /*
     ** Lock
@@ -1341,7 +1345,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
     xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );  /* TODO: fix timings */
 
     /* check if semBCreate failed */
-    if (bin_sem_handle == NULL)
+    if (event_group_handle == NULL)
     {
         OS_bin_sem_table[possible_semid].free  = TRUE;
         /*
@@ -1353,9 +1357,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
 
     if (sem_initial_value == 1)
     {
-      /* binary semaphores created using xSemaphoreCreateBinary() are created in a state 
-      such that the the semaphore must first be 'given' before it can be 'taken'.*/
-      xSemaphoreGive( bin_sem_handle );
+      xEventGroupSetBits( event_group_handle, egBIN_SEM_STATE_BIT );
     }
 
     /* Set the sem_id to the one that we found available */
@@ -1364,7 +1366,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
     *sem_id = possible_semid;
 
     OS_bin_sem_table[*sem_id].free = FALSE;
-    OS_bin_sem_table[*sem_id].bin_sem_handle = bin_sem_handle;
+    OS_bin_sem_table[*sem_id].event_group_handle = event_group_handle;
     strcpy(OS_bin_sem_table[*sem_id].name, (char *)sem_name);
     // OS_bin_sem_table[*sem_id].creator = OS_FindCreator();  /* TODO: fix it */
     OS_bin_sem_table[*sem_id].max_value = 1;
@@ -1403,7 +1405,7 @@ int32 OS_BinSemDelete (uint32 sem_id)
     }
 
     /* FreeRTOS doesn't have return values for this function */
-    vSemaphoreDelete( OS_bin_sem_table[sem_id].bin_sem_handle );
+    vEventGroupDelete( OS_bin_sem_table[sem_id].event_group_handle );
 
     /* Remove the Id from the table, and its name, so that it cannot be found again */
     /*
@@ -1414,7 +1416,7 @@ int32 OS_BinSemDelete (uint32 sem_id)
     OS_bin_sem_table[sem_id].free = TRUE;
     strcpy(OS_bin_sem_table[sem_id].name, "");
     OS_bin_sem_table[sem_id].creator = UNINITIALIZED;
-    OS_bin_sem_table[sem_id].bin_sem_handle = NULL;  /* TODO: fix it */
+    OS_bin_sem_table[sem_id].event_group_handle = NULL;  /* TODO: fix it */
     OS_bin_sem_table[sem_id].max_value = 0;
     OS_bin_sem_table[sem_id].current_value = 0;
     
@@ -1462,16 +1464,12 @@ int32 OS_BinSemGive (uint32 sem_id)
     {
         OS_bin_sem_table[sem_id].current_value ++;
 
-        /* Give FreeRTOS Semaphore */
-        if (xSemaphoreGive( OS_bin_sem_table[sem_id].bin_sem_handle ) != pdPASS)
-        {
-           return OS_SEM_FAILURE;
-        }
+        xEventGroupSetBits( OS_bin_sem_table[sem_id].event_group_handle, egBIN_SEM_STATE_BIT );
+        xEventGroupClearBits( OS_bin_sem_table[sem_id].event_group_handle, egBIN_SEM_FLUSH_BIT );
     }
 
-    /* just drop the semGive call */
     return OS_SUCCESS;
-    
+
 }/* end OS_BinSemGive */
 
 /*---------------------------------------------------------------------------------------
@@ -1499,15 +1497,7 @@ int32 OS_BinSemFlush (uint32 sem_id)
         return OS_ERR_INVALID_ID;
     }
 
-/* TODO: what is flush for FreeRTOS? */
-    #if 0
-    /* Flush VxWorks Semaphore */
-    if(semFlush(OS_bin_sem_table[sem_id].id) != OK)
-    {
-        return OS_SEM_FAILURE;
-    }
-    #endif
-
+    xEventGroupSetBits( OS_bin_sem_table[sem_id].event_group_handle, egBIN_SEM_FLUSH_BIT );
     return OS_SUCCESS;
 
 }/* end OS_BinSemFlush */
@@ -1535,24 +1525,45 @@ int32 OS_BinSemTake (uint32 sem_id)
      * Note: This function accesses the OS_bin_sem_table without locking that table's
      * semaphore.
      */
+
+    EventBits_t uxBits;
+
     /* Check Parameters */
     if (sem_id >= OS_MAX_BIN_SEMAPHORES  || OS_bin_sem_table[sem_id].free == TRUE)
     {
         return OS_ERR_INVALID_ID;
     }
 
-    /* Take FreeRTOS Semaphore
-     */
-    if (xSemaphoreTake( OS_bin_sem_table[sem_id].bin_sem_handle, portMAX_DELAY ) != pdPASS)
+    uxBits = xEventGroupWaitBits( OS_bin_sem_table[sem_id].event_group_handle,
+                                  (egBIN_SEM_STATE_BIT | egBIN_SEM_FLUSH_BIT),
+                                  pdFALSE,
+                                  pdFALSE,
+                                  portMAX_DELAY );
+
+    if( ( uxBits & ( egBIN_SEM_STATE_BIT | egBIN_SEM_FLUSH_BIT ) ) == ( egBIN_SEM_STATE_BIT | egBIN_SEM_FLUSH_BIT ) )
     {
-        return OS_SEM_FAILURE;
+        /* xEventGroupWaitBits() returned because both bits were set */
+        return OS_SUCCESS;
+    }
+    else if( ( uxBits & egBIN_SEM_STATE_BIT ) != 0 )
+    {
+        /* xEventGroupWaitBits() returned because just egBIN_SEM_STATE_BIT was set. */
+        xEventGroupClearBits( OS_bin_sem_table[sem_id].event_group_handle, egBIN_SEM_STATE_BIT );
+        OS_bin_sem_table[sem_id].current_value --;  /* TODO: check for the value? (> 0?) */
+        return OS_SUCCESS;
+    }
+    else if( ( uxBits & egBIN_SEM_FLUSH_BIT ) != 0 )
+    {
+        /* xEventGroupWaitBits() returned because just egBIN_SEM_FLUSH_BIT was set */
+        return OS_SUCCESS;
     }
     else
     {
-        /* TODO: check for the value? (> 0?) */
-        OS_bin_sem_table[sem_id].current_value --;
-        return OS_SUCCESS;
+        /* xEventGroupWaitBits() returned because xTicksToWait ticks passed */
+        return OS_SEM_FAILURE;
     }
+
+    return OS_SEM_FAILURE;
 
 }/* end OS_BinSemTake */
 
@@ -1577,10 +1588,8 @@ int32 OS_BinSemTimedWait (uint32 sem_id, uint32 msecs)
      * Note: This function accesses the OS_bin_sem_table without locking that table's
      * semaphore.
      */
-    /* msecs rounded to the closest system tick count */
     uint32 sys_ticks;
-    BaseType_t status;
-
+    EventBits_t uxBits;
 
     /* Check Parameters */
     if( (sem_id >= OS_MAX_BIN_SEMAPHORES) || (OS_bin_sem_table[sem_id].free == TRUE) )
@@ -1590,20 +1599,36 @@ int32 OS_BinSemTimedWait (uint32 sem_id, uint32 msecs)
 
     sys_ticks = OS_Milli2Ticks(msecs);
 
-    /* Wait for FreeRTOS Semaphore
-     */
-    status = xSemaphoreTake( OS_bin_sem_table[sem_id].bin_sem_handle, sys_ticks );
-    if (status == pdPASS)
+    uxBits = xEventGroupWaitBits( OS_bin_sem_table[sem_id].event_group_handle,
+                                  (egBIN_SEM_STATE_BIT | egBIN_SEM_FLUSH_BIT),
+                                  pdFALSE,
+                                  pdFALSE,
+                                  sys_ticks );
+
+    if( ( uxBits & ( egBIN_SEM_STATE_BIT | egBIN_SEM_FLUSH_BIT ) ) == ( egBIN_SEM_STATE_BIT | egBIN_SEM_FLUSH_BIT ) )
     {
-        /* TODO: check for the value? (> 0?) */
-        OS_bin_sem_table[sem_id].current_value --;
+        /* xEventGroupWaitBits() returned because both bits were set */
         return OS_SUCCESS;
     }
-/* TODO: there is no way to distinguish between timeout and fail */
+    else if( ( uxBits & egBIN_SEM_STATE_BIT ) != 0 )
+    {
+        /* xEventGroupWaitBits() returned because just egBIN_SEM_STATE_BIT was set */
+        xEventGroupClearBits( OS_bin_sem_table[sem_id].event_group_handle, egBIN_SEM_STATE_BIT );
+        OS_bin_sem_table[sem_id].current_value --;  /* TODO: check for the value? (> 0?) */
+        return OS_SUCCESS;
+    }
+    else if( ( uxBits & egBIN_SEM_FLUSH_BIT ) != 0 )
+    {
+        /* xEventGroupWaitBits() returned because just egBIN_SEM_FLUSH_BIT was set */
+        return OS_SUCCESS;
+    }
     else
     {
+        /* xEventGroupWaitBits() returned because xTicksToWait ticks passed */
         return OS_SEM_TIMEOUT;
     }
+
+    return OS_SEM_FAILURE;
 
 }/* end OS_BinSemTimedWait */
 
