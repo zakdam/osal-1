@@ -62,7 +62,7 @@ typedef struct
 typedef struct
 {
     int            free;
-    QueueHandle_t  queue_handle;  /* TODO: check */
+    QueueHandle_t  queue_handle;
     uint32         max_size;
     char           name [OS_MAX_API_NAME];
     int            creator;
@@ -185,7 +185,6 @@ int32 OS_API_Init(void)
    /* TODO: implement something later if possible */
    #endif
 
-/* TODO: implement */
    /*
    ** Initialize the Timer API
    */
@@ -293,11 +292,11 @@ void OS_DeleteAllObjects       (void)
     {
         OS_BinSemDelete(i);
     }
-#if 0  /* needs to be implemented */
     for (i = 0; i < OS_MAX_TIMERS; ++i)
     {
         OS_TimerDelete(i);
     }
+#if 0  /* needs to be implemented */
     for (i = 0; i < OS_MAX_MODULES; ++i)
     {
         OS_ModuleUnload(i);
@@ -377,7 +376,7 @@ int32 OS_TaskCreate (uint32 *task_id, const char *task_name, osal_task_entry fun
     int                possible_taskid;
     int                i;
     BaseType_t         FR_status;  /* TODO: check */
-    TaskHandle_t       task_handle = NULL;  /* TODO: check */
+    TaskHandle_t       task_handle;
 
     /* Check for NULL pointers */    
     if( (task_name == NULL) || (function_pointer == NULL) || (task_id == NULL) )
@@ -447,7 +446,7 @@ int32 OS_TaskCreate (uint32 *task_id, const char *task_name, osal_task_entry fun
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );
 
     /* check if xTaskCreate failed */
     if (FR_status != pdPASS)
@@ -516,7 +515,7 @@ int32 OS_TaskDelete (uint32 task_id)
      * Now that the task is deleted, remove its 
      * "presence" in OS_task_table
     */
-    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );
     OS_task_table[task_id].free = TRUE;
     OS_task_table[task_id].task_handle = UNINITIALIZED;
     OS_task_table[task_id].name[0] = '\0';
@@ -547,7 +546,7 @@ void OS_TaskExit()
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );
 
     OS_task_table[task_id].free = TRUE;
     OS_task_table[task_id].task_handle = UNINITIALIZED;
@@ -750,7 +749,7 @@ int32 OS_TaskGetInfo (uint32 task_id, OS_task_prop_t *task_prop)
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );
     /* Check to see that the id given is valid */
     if (task_id >= OS_MAX_TASKS || OS_task_table[task_id].free == TRUE)
     {
@@ -808,7 +807,7 @@ int32 OS_TaskInstallDeleteHandler(osal_task_entry function_pointer)
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );
 
     if ( OS_task_table[task_id].free != FALSE )
     {
@@ -859,7 +858,7 @@ int32 OS_QueueCreate (uint32 *queue_id, const char *queue_name, uint32 queue_dep
 {
     uint32 possible_qid;
     uint32 i;
-    QueueHandle_t queue_handle;  /* TODO: init it with some value */
+    QueueHandle_t queue_handle;
 
     if ( queue_id == NULL || queue_name == NULL)
     {
@@ -877,7 +876,7 @@ int32 OS_QueueCreate (uint32 *queue_id, const char *queue_name, uint32 queue_dep
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );
     for (possible_qid = 0; possible_qid < OS_MAX_QUEUES; possible_qid++)
     {
         if (OS_queue_table[possible_qid].free == TRUE)
@@ -924,7 +923,7 @@ int32 OS_QueueCreate (uint32 *queue_id, const char *queue_name, uint32 queue_dep
         /*
         ** Lock
         */
-        xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+        xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );
         OS_queue_table[possible_qid].free = TRUE;
         /*
         ** Unlock
@@ -940,7 +939,7 @@ int32 OS_QueueCreate (uint32 *queue_id, const char *queue_name, uint32 queue_dep
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );
 
     OS_queue_table[*queue_id].queue_handle = queue_handle;
     OS_queue_table[*queue_id].max_size = data_size;
@@ -992,7 +991,7 @@ int32 OS_QueueDelete (uint32 queue_id)
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );
 
     OS_queue_table[queue_id].free = TRUE;
     strcpy(OS_queue_table[queue_id].name, "");
@@ -1059,7 +1058,7 @@ int32 OS_QueueGet (uint32 queue_id, void *data, uint32 size, uint32 *size_copied
     }
     else if (timeout == OS_CHECK)
     {
-        status = xQueueReceive( OS_queue_table[queue_id].queue_handle, data, 0 );  /* TODO: convert the type for zero */
+        status = xQueueReceive( OS_queue_table[queue_id].queue_handle, data, (TickType_t)0 );
 
         if (status == errQUEUE_EMPTY)
         {
@@ -1070,7 +1069,7 @@ int32 OS_QueueGet (uint32 queue_id, void *data, uint32 size, uint32 *size_copied
     else
     {
         sys_ticks = OS_Milli2Ticks(timeout);
-        status = xQueueReceive( OS_queue_table[queue_id].queue_handle, data, sys_ticks );  /* TODO: convert the type for sys_ticks */
+        status = xQueueReceive( OS_queue_table[queue_id].queue_handle, data, (TickType_t)sys_ticks );
 
         if (status != pdPASS)  /* TODO: check if the queue is empty? */
         {
@@ -1126,8 +1125,8 @@ int32 OS_QueuePut (uint32 queue_id, const void *data, uint32 size, uint32 flags)
         return OS_INVALID_POINTER;
     }
 
-    /* Put Message Into FreeRTOS Message Queue */                            /* TODO: type conversion */
-    status = xQueueSendToBack( OS_queue_table[queue_id].queue_handle, (void*)data, 0 );
+    /* Put Message Into FreeRTOS Message Queue */
+    status = xQueueSendToBack( OS_queue_table[queue_id].queue_handle, (void*)data, (TickType_t)0 );
 
     /* TODO: beautify the branches */
     if (status != pdPASS)
@@ -1227,7 +1226,7 @@ int32 OS_QueueGetInfo (uint32 queue_id, OS_queue_prop_t *queue_prop)
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_queue_table_mut, portMAX_DELAY );
 
     queue_prop -> creator = OS_queue_table[queue_id].creator;
     strcpy(queue_prop -> name, OS_queue_table[queue_id].name);
@@ -1289,7 +1288,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );
 
     for (possible_semid = 0; possible_semid < OS_MAX_BIN_SEMAPHORES; possible_semid++)
     {
@@ -1342,7 +1341,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );
 
     /* check if semBCreate failed */
     if (event_group_handle == NULL)
@@ -1411,7 +1410,7 @@ int32 OS_BinSemDelete (uint32 sem_id)
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );
 
     OS_bin_sem_table[sem_id].free = TRUE;
     strcpy(OS_bin_sem_table[sem_id].name, "");
@@ -1698,7 +1697,7 @@ int32 OS_BinSemGetInfo (uint32 sem_id, OS_bin_sem_prop_t *bin_prop)
     /*
     ** Lock
     */
-    xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_bin_sem_table_mut, portMAX_DELAY );
     /* Check to see that the id given is valid */
     if (sem_id >= OS_MAX_BIN_SEMAPHORES || OS_bin_sem_table[sem_id].free == TRUE)
     {
@@ -1756,7 +1755,7 @@ int32 OS_CountSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initia
 {
     uint32 possible_semid;
     uint32 i;
-    SemaphoreHandle_t count_sem_handle;  /* TODO: init with something */
+    SemaphoreHandle_t count_sem_handle;
 
     /*
     ** Check Parameters
@@ -2198,7 +2197,7 @@ int32 OS_MutSemCreate (uint32 *sem_id, const char *sem_name, uint32 options)
 {
     uint32 possible_semid;
     uint32 i;
-    SemaphoreHandle_t mut_sem_handle;  /* TODO: init with something */
+    SemaphoreHandle_t mut_sem_handle;
 
     /* Check Parameters */
     if (sem_id == NULL || sem_name == NULL)
