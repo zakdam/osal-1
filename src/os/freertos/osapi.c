@@ -100,8 +100,6 @@ typedef struct
 /* function pointer type */
 typedef void (*FuncPtr_t)(void);
 
-static uint32                OS_task_key;  /* TODO: check if it's really needed  */
-
 /* Tables where the OS object information is stored */
 OS_task_internal_record_t       OS_task_table          [OS_MAX_TASKS];
 OS_queue_internal_record_t      OS_queue_table         [OS_MAX_QUEUES];
@@ -629,7 +627,6 @@ int32 OS_TaskSetPriority (uint32 task_id, uint32 new_priority)
 int32 OS_TaskRegister (void)
 {
     int          i;
-    int          ret;
     uint32       task_id;
     TaskHandle_t task_handle;
 
@@ -655,18 +652,8 @@ int32 OS_TaskRegister (void)
         return OS_ERR_INVALID_ID;
     }
 
-/* TODO: needs to be implemented (used later by OS_TaskGetId()) */
-//    /*
-//    ** Add pthread variable
-//    */
-//    ret = pthread_setspecific(thread_key, (void *)task_id);
-//    if ( ret != 0 )
-//    {
-//       #ifdef OS_DEBUG_PRINTF
-//          printf("OS_TaskRegister Failed during pthread_setspecific function\n");
-//       #endif
-//       return(OS_ERROR);
-//    }
+    /* save "task_id" as FreeRTOS thread local storage pointer */
+    vTaskSetThreadLocalStoragePointer( task_handle, 0, (void *)task_id );
 
     return OS_SUCCESS;
 }/* end OS_TaskRegister */
@@ -682,9 +669,8 @@ int32 OS_TaskRegister (void)
 ---------------------------------------------------------------------------------------*/
 uint32 OS_TaskGetId (void)
 {
-  /* TODO: is it correct? */
-    return (uint32) OS_task_key;
-
+    /* obtain "task_id" from FreeRTOS local storage pointer */
+    return (uint32)pvTaskGetThreadLocalStoragePointer( NULL, 0 );
 }/* end OS_TaskGetId */
 
 /*--------------------------------------------------------------------------------------
