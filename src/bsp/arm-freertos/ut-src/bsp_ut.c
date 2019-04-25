@@ -262,6 +262,12 @@ void UT_BSP_StopTest(void)
    OS_ApplicationShutdown(TRUE);
 }
 
+/* void wrapper to avoid function pointer warnings */
+void UtTest_Run_void(void)
+{
+   UtTest_Run();
+}
+
 /******************************************************************************
 **  Function:  main()
 **
@@ -292,13 +298,13 @@ int main(int argc, char *argv[])
    uint32 task_id = 0;
    uint32 task_stack[2048];
    /* TODO: align with a task type */
-   OS_TaskCreate(&task_id, "UtTest_Run", UtTest_Run, task_stack, 2048, 101, 0);
+   OS_TaskCreate(&task_id, "UtTest_Run", UtTest_Run_void, task_stack, 2048, 101, 0);
 
    OS_IdleLoop();
 
    UT_BSP_EndTest(UtAssert_GetCounters());
 
    /* Should typically never get here */
-   return(EXIT_SUCCESS);
+   return (EXIT_SUCCESS);
 }
 
