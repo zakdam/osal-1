@@ -8,14 +8,14 @@
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
+
 /*
 ** FreeRTOS includes
-** TODO: place in the correct line.
 */
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
-#include "event_groups.h"
+#include <FreeRTOS.h>
+#include <task.h>
+#include <semphr.h>
+#include <event_groups.h>
 
 /*
 ** User defined include files
@@ -374,7 +374,7 @@ int32 OS_TaskCreate (uint32 *task_id, const char *task_name, osal_task_entry fun
 {
     int                possible_taskid;
     int                i;
-    BaseType_t         FR_status;  /* TODO: check */
+    BaseType_t         task_status;
     TaskHandle_t       task_handle;
 
     /* Check for NULL pointers */    
@@ -397,7 +397,7 @@ int32 OS_TaskCreate (uint32 *task_id, const char *task_name, osal_task_entry fun
     }
 
     /* Check Parameters */
-    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );  /* TODO: fix timings */
+    xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );
 
     for(possible_taskid = 0; possible_taskid < OS_MAX_TASKS; possible_taskid++)
     {
@@ -435,7 +435,7 @@ int32 OS_TaskCreate (uint32 *task_id, const char *task_name, osal_task_entry fun
 
     /* TODO: floating point operation flag */
 
-    FR_status = xTaskCreate( (TaskFunction_t) function_pointer, 
+    task_status = xTaskCreate( (TaskFunction_t) function_pointer, 
                              (char*)task_name, 
                              stack_size, 
                              NULL, 
@@ -448,7 +448,7 @@ int32 OS_TaskCreate (uint32 *task_id, const char *task_name, osal_task_entry fun
     xSemaphoreTake( OS_task_table_mut, portMAX_DELAY );
 
     /* check if xTaskCreate failed */
-    if (FR_status != pdPASS)
+    if (task_status != pdPASS)
     {
       OS_task_table[possible_taskid].free = TRUE;
       xSemaphoreGive( OS_task_table_mut );
@@ -760,7 +760,7 @@ int32 OS_TaskGetInfo (uint32 task_id, OS_task_prop_t *task_prop)
     task_prop -> creator =    OS_task_table[task_id].creator;
     task_prop -> stack_size = OS_task_table[task_id].stack_size;
     task_prop -> priority =   OS_task_table[task_id].priority;
-    task_prop -> OStask_id =  (uint32)OS_task_table[task_id].task_handle;  /* TODO: seems wrong! */
+    task_prop -> OStask_id =  (uint32)OS_task_table[task_id].task_handle;
 
     strcpy(task_prop-> name, OS_task_table[task_id].name);
     /*
@@ -1115,7 +1115,6 @@ int32 OS_QueuePut (uint32 queue_id, const void *data, uint32 size, uint32 flags)
     /* Put Message Into FreeRTOS Message Queue */
     status = xQueueSendToBack( OS_queue_table[queue_id].queue_handle, (void*)data, (TickType_t)0 );
 
-    /* TODO: beautify the branches */
     if (status != pdPASS)
     {
         if (status == errQUEUE_FULL)
@@ -1354,7 +1353,7 @@ int32 OS_BinSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initial_
     OS_bin_sem_table[*sem_id].free = FALSE;
     OS_bin_sem_table[*sem_id].event_group_handle = event_group_handle;
     strcpy(OS_bin_sem_table[*sem_id].name, (char *)sem_name);
-    // OS_bin_sem_table[*sem_id].creator = OS_FindCreator();  /* TODO: fix it */
+    OS_bin_sem_table[*sem_id].creator = OS_FindCreator();
     OS_bin_sem_table[*sem_id].max_value = 1;
     OS_bin_sem_table[*sem_id].current_value = sem_initial_value;
 
@@ -1402,7 +1401,7 @@ int32 OS_BinSemDelete (uint32 sem_id)
     OS_bin_sem_table[sem_id].free = TRUE;
     strcpy(OS_bin_sem_table[sem_id].name, "");
     OS_bin_sem_table[sem_id].creator = UNINITIALIZED;
-    OS_bin_sem_table[sem_id].event_group_handle = NULL;  /* TODO: fix it */
+    OS_bin_sem_table[sem_id].event_group_handle = NULL;
     OS_bin_sem_table[sem_id].max_value = 0;
     OS_bin_sem_table[sem_id].current_value = 0;
     
@@ -1891,7 +1890,7 @@ int32 OS_CountSemDelete (uint32 sem_id)
     OS_count_sem_table[sem_id].free = TRUE;
     strcpy(OS_count_sem_table[sem_id].name, "");
     OS_count_sem_table[sem_id].creator = UNINITIALIZED;
-    OS_count_sem_table[sem_id].count_sem_handle = NULL;  /* TODO: how to fix? */
+    OS_count_sem_table[sem_id].count_sem_handle = NULL;
 
     /*
     ** Unlock
@@ -2041,7 +2040,7 @@ int32 OS_CountSemTimedWait (uint32 sem_id, uint32 msecs)
     {
        return_code = OS_SUCCESS;
     }
-    /* TODO: how to distinguish timeout? */
+    /* Note: for xSemaphoreTake() there is no way to understand if timeout happend */
     else
     {
        return_code =  OS_SEM_FAILURE;
@@ -2269,7 +2268,7 @@ int32 OS_MutSemCreate (uint32 *sem_id, const char *sem_name, uint32 options)
     OS_mut_sem_table[*sem_id].mut_sem_handle = mut_sem_handle;
     strcpy(OS_mut_sem_table[*sem_id].name, (char*)sem_name);
     OS_mut_sem_table[*sem_id].free = FALSE;
-    //OS_mut_sem_table[*sem_id].creator = OS_FindCreator(); /* TODO: fix this */
+    OS_mut_sem_table[*sem_id].creator = OS_FindCreator();
 
     /*
     ** Unlock
@@ -2313,7 +2312,7 @@ int32 OS_MutSemDelete (uint32 sem_id)
     xSemaphoreTake( OS_mut_sem_table_mut, portMAX_DELAY );
 
     OS_mut_sem_table[sem_id].free = TRUE;
-    OS_mut_sem_table[sem_id].mut_sem_handle = NULL;  /* TODO: fix it */
+    OS_mut_sem_table[sem_id].mut_sem_handle = NULL;
     strcpy(OS_mut_sem_table[sem_id].name, "");
     OS_mut_sem_table[sem_id].creator = UNINITIALIZED;
 

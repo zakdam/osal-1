@@ -14,7 +14,7 @@
 #include "stdlib.h"
 #include "string.h"
 
-#define UNINITIALIZED 0  /* TODO: what? */
+#define UNINITIALIZED 0
 
 /****************************************************************************************
                                 EXTERNAL FUNCTION PROTOTYPES
@@ -108,7 +108,6 @@ int32 OS_TimerAPIInit ( void )
 */
 static void OS_TimerSignalHandler(TimerHandle_t xTimer)
 {
-   BaseType_t status;
    uint32     i;
    TickType_t timeout;
 
@@ -131,13 +130,16 @@ static void OS_TimerSignalHandler(TimerHandle_t xTimer)
             */
             OS_UsecsToTicks(OS_timer_table[i].interval_time, &timeout);
 
+            /*
+            ** Return values from xTimer...() functions are not used
+            */
 // TODO: switch to:
 //            xTimerChangePeriodFromISR()
-            status = xTimerChangePeriod(xTimer, timeout, portMAX_DELAY);
+            xTimerChangePeriod(xTimer, timeout, portMAX_DELAY);
 
 // TODO: switch to:
 //            xTimerStartFromISR()
-            status = xTimerStart(xTimer, portMAX_DELAY);
+            xTimerStart(xTimer, portMAX_DELAY);
           }
 
          break;
@@ -153,7 +155,6 @@ static void OS_TimerSignalHandler(TimerHandle_t xTimer)
  */
 void  OS_UsecsToTicks(uint32 usecs, TickType_t *ticks)
 {
-   // TODO: do we need pdMS_TO_TICKS( xTimeInMs )?
    TickType_t ticks_per_sec = configTICK_RATE_HZ;
    uint32     usecs_per_tick;
 
@@ -203,7 +204,7 @@ int32 OS_TimerCreate(uint32 *timer_id, const char *timer_name, uint32 *clock_acc
 {
     uint32 possible_tid;
     int32 i;
-    TimerHandle_t possible_host_timer_handler;  /* TODO: is this correct? */
+    TimerHandle_t possible_host_timer_handler;
 
     /*
     ** Check Parameters
@@ -266,7 +267,7 @@ int32 OS_TimerCreate(uint32 *timer_id, const char *timer_name, uint32 *clock_acc
     OS_timer_table[possible_tid].free = FALSE;
     xSemaphoreGive( OS_timer_table_mut );
 
-    //OS_timer_table[possible_tid].creator = OS_FindCreator();  / TODO: fix this* */
+    OS_timer_table[possible_tid].creator = OS_FindCreator();
     strncpy(OS_timer_table[possible_tid].name, timer_name, OS_MAX_API_NAME);
     OS_timer_table[possible_tid].start_time = 0;
     OS_timer_table[possible_tid].interval_time = 0;
@@ -388,7 +389,7 @@ int32 OS_TimerSet(uint32 timer_id, uint32 start_time, uint32 interval_time)
 */
 int32 OS_TimerDelete(uint32 timer_id)
 {
-    BaseType_t status;  /* TODO: init with something */
+    BaseType_t status;
 
     /*
     ** Check to see if the timer_id given is valid 
@@ -410,8 +411,8 @@ int32 OS_TimerDelete(uint32 timer_id)
     xSemaphoreGive( OS_timer_table_mut );
 
     /*
-    ** Delete the timer 
-    */                                                                  /* TODO: fix it */
+    ** Delete the timer
+    */
     status = xTimerDelete( OS_timer_table[timer_id].host_timer_handler, portMAX_DELAY );
     if (status != pdPASS)
     {
