@@ -36,7 +36,7 @@ uint32 count_sem_id;
 
 void task_1(void)
 {
-    uint32             status;
+    int32             status;
 
     OS_printf("Starting task 1\n");
     OS_TaskRegister();
@@ -78,7 +78,7 @@ void task_1(void)
 
 void task_2(void)
 {
-    uint32             status;
+    int32             status;
 
     OS_printf("Starting task 2\n");
     OS_TaskRegister();
@@ -105,7 +105,7 @@ void task_2(void)
 
 void task_3(void)
 {
-    uint32             status;
+    int32             status;
 
     OS_printf("Starting task 3\n");
     OS_TaskRegister();
@@ -144,7 +144,7 @@ void OS_Application_Startup(void)
 
 void CountSemSetup(void)
 {
-   uint32 status;
+   int32 status;
    int    i;
 
    task_1_failures = 0;

@@ -38,6 +38,8 @@ uint32 timer_start = 10000;
 uint32 timer_interval = 100000; /* 1000 = 1000 hz, 10000 == 100 hz */
 uint32 timer_accuracy;
 
+uint32 bin_sem_os_id;
+
 void TimerFunction(uint32 timer_id)
 {
    timer_counter++;
@@ -45,7 +47,7 @@ void TimerFunction(uint32 timer_id)
 
 void task_1(void)
 {
-    uint32             status;
+    int32              status;
     uint32             data_received;
     uint32             data_size;
 
@@ -81,6 +83,8 @@ void task_1(void)
 
 void task_2(void)
 {
+   int32 status;
+
    OS_TaskRegister();
    /*
     * Time limited execution
@@ -91,7 +95,9 @@ void task_2(void)
       OS_TaskDelay(500);
    }
 
-   OS_ApplicationShutdown(TRUE);
+   status = OS_BinSemGive(bin_sem_os_id);
+   UtAssert_True(status == OS_SUCCESS, "BinSemOS give Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
+
    OS_TaskExit();
 }
 
@@ -174,6 +180,12 @@ void QueueTimeoutSetup(void)
    status  =  OS_TimerSet(timer_id, timer_start, timer_interval);
    UtAssert_True(status == OS_SUCCESS, "Timer 1 set Rc=%d", (int)status);
 
-
-   OS_IdleLoop();
+   /*
+    * Create a dedicated binary semaphore so the tasks and timers can run.
+    * Something must give back the semaphore when done which will continue the test.
+    */
+   status = OS_BinSemCreate(&bin_sem_os_id, "BinSemOS", 0, 0);
+   UtAssert_True(status == OS_SUCCESS, "BinSemOS create Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
+   status = OS_BinSemTake(bin_sem_os_id);
+   UtAssert_True(status == OS_SUCCESS, "BinSemOS take Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
 }

@@ -37,7 +37,7 @@ uint32 bin_sem_id;
 
 void task_1(void)
 {
-    uint32             status;
+    int32              status;
     OS_bin_sem_prop_t  bin_sem_prop;
     int                counter = 0;
 
@@ -76,7 +76,7 @@ void task_1(void)
 
 void task_2(void)
 {
-    uint32             status;
+    int32              status;
     OS_bin_sem_prop_t  bin_sem_prop;
     int                counter = 0;
 
@@ -116,7 +116,7 @@ void task_2(void)
 
 void task_3(void)
 {
-    uint32             status;
+    int32              status;
     OS_bin_sem_prop_t  bin_sem_prop;
     int                counter = 0;
 
@@ -171,7 +171,7 @@ void OS_Application_Startup(void)
 
 void BinSemFlushSetup(void)
 {
-   uint32 status;
+   int32 status;
    OS_bin_sem_prop_t  bin_sem_prop;
 
    /* Note that UT assert is not multi-thread safe,
