@@ -29,7 +29,8 @@
 #define UNINITIALIZED 0
 #define MAX_PRIORITY 255
 
-#define SEM_VALUE_MAX 255  /* TODO: has to be taken from right include file */ 
+/* depends on FreeRTOS "UBaseType_t" max value, 255 is the worst case */
+#define SEM_VALUE_MAX 255
 
 #undef OS_DEBUG_PRINTF 
 
@@ -1810,8 +1811,7 @@ int32 OS_CountSemCreate (uint32 *sem_id, const char *sem_name, uint32 sem_initia
     xSemaphoreGive( OS_count_sem_table_mut );
 
     /* Create FreeRTOS Semaphore */
-/* TODO: how to fix this? */
-    count_sem_handle = xSemaphoreCreateCounting(16, sem_initial_value);
+    count_sem_handle = xSemaphoreCreateCounting(SEM_VALUE_MAX, sem_initial_value);
 
     /*
     ** Lock
