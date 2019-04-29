@@ -96,3 +96,10 @@ License information:
 
 This software is licensed under NASAs Open Source Agreement. The release of the software is conditional upon the recipients acceptance of the Open Source Agreement. Please see the file: NASA_Open_Source_Agreement_1_3-OS_AbstractionLayer.txt
 
+Module responsibilities:
+========================
+![module_usage.png](./doc/pictures/module_usage.png)
+
+Build system differences:
+==========================
+![build_differences.png](./doc/pictures/build_differences.png)
