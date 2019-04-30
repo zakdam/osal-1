@@ -181,7 +181,7 @@ int32 OS_API_Init(void)
    ** Initialize the module loader
    */
    #ifdef OS_INCLUDE_MODULE_LOADER
-   /* TODO: implement something later if possible */
+     /* Not implemented */
    #endif
 
    /*
@@ -232,12 +232,10 @@ int32 OS_API_Init(void)
       return(return_code);
    }
 
-/* TODO: implement */
-//   /*
-//   ** File system init
-//   */
-//   return_code = OS_FS_Init();
-
+   /*
+   ** File system init
+   */
+   /* Not implemented */
 
    return_code = OS_SUCCESS;
 
