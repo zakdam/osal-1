@@ -319,12 +319,8 @@ void OS_DeleteAllObjects       (void)
 ---------------------------------------------------------------------------------------*/
 void OS_IdleLoop()
 {
-   /* TODO: is it enough? What about flags? */
-
    /* Start the scheduler itself. */
    vTaskStartScheduler();
-
-   /* TODO: do we need while(1) here? */
 }
 
 
@@ -339,8 +335,8 @@ void OS_IdleLoop()
 ---------------------------------------------------------------------------------------*/
 void OS_ApplicationShutdown(uint8 flag)
 {
-  /* TODO: is it correct? */
-  vTaskEndScheduler();
+   /* End the scheduler. */
+   vTaskEndScheduler();
 }
 
 
