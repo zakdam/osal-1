@@ -1532,7 +1532,7 @@ int32 OS_BinSemTake (uint32 sem_id)
     {
         /* xEventGroupWaitBits() returned because just egBIN_SEM_STATE_BIT was set. */
         xEventGroupClearBits( OS_bin_sem_table[sem_id].event_group_handle, egBIN_SEM_STATE_BIT );
-        OS_bin_sem_table[sem_id].current_value --;  /* TODO: check for the value? (> 0?) */
+        OS_bin_sem_table[sem_id].current_value --;
         return OS_SUCCESS;
     }
     else if( ( uxBits & egBIN_SEM_FLUSH_BIT ) != 0 )
@@ -1597,7 +1597,7 @@ int32 OS_BinSemTimedWait (uint32 sem_id, uint32 msecs)
     {
         /* xEventGroupWaitBits() returned because just egBIN_SEM_STATE_BIT was set */
         xEventGroupClearBits( OS_bin_sem_table[sem_id].event_group_handle, egBIN_SEM_STATE_BIT );
-        OS_bin_sem_table[sem_id].current_value --;  /* TODO: check for the value? (> 0?) */
+        OS_bin_sem_table[sem_id].current_value --;
         return OS_SUCCESS;
     }
     else if( ( uxBits & egBIN_SEM_FLUSH_BIT ) != 0 )
