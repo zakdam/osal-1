@@ -433,8 +433,6 @@ int32 OS_TaskCreate (uint32 *task_id, const char *task_name, osal_task_entry fun
 
     xSemaphoreGive( OS_task_table_mut );
 
-    /* TODO: floating point operation flag */
-
     task_status = xTaskCreate( (TaskFunction_t) function_pointer, 
                              (char*)task_name, 
                              stack_size, 
@@ -2775,7 +2773,8 @@ void OS_ThreadKillHandler(int sig)
 int32 OS_FPUExcSetMask(uint32 mask)
 {
     /*
-    ** TODO: check if implemented.
+    ** Not used.
+    ** The FPU usage depends on a FreeRTOS port and its compile time configuration.
     */
     return(OS_SUCCESS);
 }
@@ -2792,7 +2791,8 @@ int32 OS_FPUExcSetMask(uint32 mask)
 int32 OS_FPUExcGetMask(uint32 *mask)
 {
     /*
-    ** TODO: check if implemented.
+    ** Not used.
+    ** The FPU usage depends on a FreeRTOS port and its compile time configuration.
     */
     return(OS_SUCCESS);
 }
