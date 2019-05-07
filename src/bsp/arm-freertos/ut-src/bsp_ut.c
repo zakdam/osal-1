@@ -34,6 +34,11 @@
 #include "uttest.h"
 #include "osapi.h"
 
+/*
+**  External Functions
+*/
+
+extern void freertos_set_daemon(void (*func_p)(void));
 
 /*
 **  External Declarations
@@ -295,10 +300,7 @@ int main(int argc, char *argv[])
    /*
    ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
    */
-   uint32 task_id = 0;
-   uint32 task_stack[2048];
-   /* TODO: align with a task type */
-   OS_TaskCreate(&task_id, "UtTest_Run", UtTest_Run_void, task_stack, 2048, 101, 0);
+   freertos_set_daemon(UtTest_Run_void);
 
    OS_IdleLoop();
 

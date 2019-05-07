@@ -2813,3 +2813,21 @@ void vApplicationIdleHook(void)
 void vApplicationTickHook(void)
 {
 }
+
+static void (*daemon_p)(void) = NULL;
+
+void freertos_set_daemon(void (*func_p)(void))
+{
+  daemon_p = func_p;
+}
+
+
+void vApplicationDaemonTaskStartupHook(void)
+{
+  printf("Hi, I'm hereee\n");
+
+  if (NULL != daemon_p)
+  {
+    daemon_p();
+  }
+}
