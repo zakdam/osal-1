@@ -273,6 +273,21 @@ void UtTest_Run_void(void)
    UtTest_Run();
 }
 
+void delayed_main(void)
+{
+   UT_BSP_Setup("PC-FREERTOS UNIT TEST");
+
+   /*
+   ** Call application specific entry point.
+   */
+   OS_Application_Startup();
+
+   /*
+   ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
+   */
+   UtTest_Run();
+}
+
 /******************************************************************************
 **  Function:  main()
 **
@@ -288,19 +303,7 @@ void UtTest_Run_void(void)
 
 int main(int argc, char *argv[])
 {
-   UT_BSP_Setup("PC-FREERTOS UNIT TEST");
-
-   /*
-   ** Call application specific entry point.
-   */
-   OS_Application_Startup();
-
-   UT_BSP_ParseCommandLine(argc, argv);
-
-   /*
-   ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
-   */
-   freertos_set_daemon(UtTest_Run_void);
+   freertos_set_daemon(delayed_main);
 
    OS_IdleLoop();
 
