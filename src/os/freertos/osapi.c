@@ -1385,7 +1385,10 @@ int32 OS_BinSemDelete (uint32 sem_id)
     }
 
     /* FreeRTOS doesn't have return values for this function */
-    vEventGroupDelete( OS_bin_sem_table[sem_id].event_group_handle );
+    if (OS_bin_sem_table[sem_id].event_group_handle != NULL)
+    {
+      vEventGroupDelete( OS_bin_sem_table[sem_id].event_group_handle );
+    }
 
     /* Remove the Id from the table, and its name, so that it cannot be found again */
     /*
