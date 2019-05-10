@@ -39,6 +39,7 @@
 */
 
 extern void freertos_set_daemon(void (*func_p)(void));
+extern int32 OS_create_background_task(void (*func_p)(void));
 
 /*
 **  External Declarations
@@ -270,6 +271,9 @@ void UT_BSP_StopTest(void)
 /* void wrapper to avoid function pointer warnings */
 void UtTest_Run_void(void)
 {
+   /*
+   ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
+   */
    UtTest_Run();
 }
 
@@ -281,11 +285,6 @@ void delayed_main(void)
    ** Call application specific entry point.
    */
    OS_Application_Startup();
-
-   /*
-   ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
-   */
-   UtTest_Run();
 }
 
 /******************************************************************************
@@ -304,6 +303,7 @@ void delayed_main(void)
 int main(int argc, char *argv[])
 {
    freertos_set_daemon(delayed_main);
+   OS_create_background_task(UtTest_Run_void);
 
    OS_IdleLoop();
 

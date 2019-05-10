@@ -2838,6 +2838,44 @@ void vApplicationDaemonTaskStartupHook(void)
   }
 }
 
+static void (*background_func_p)(void);
+
+
+void background_task( void *pvParameters )
+{
+  printf("Bang\n");
+
+  if (background_func_p != NULL)
+  {
+    background_func_p();
+  }
+
+  vTaskDelete( NULL );
+}
+
+
+int32 OS_create_background_task(void (*func_p)(void))
+{
+  BaseType_t    task_status;
+  TaskHandle_t  task_handle;
+
+  background_func_p = func_p;
+
+  task_status = xTaskCreate( (TaskFunction_t) background_task, 
+                             "background", 
+                             4096, 
+                             NULL, 
+                             configMAX_PRIORITIES - 1, 
+                             &task_handle );
+
+  if (task_status != pdPASS)
+  {
+    return OS_ERROR;
+  }
+
+  return OS_SUCCESS;
+}
+
 /****************************************************************************************
                                   Table Locking/Unlocking
 ****************************************************************************************/
