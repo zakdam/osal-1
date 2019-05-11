@@ -21,6 +21,8 @@
 ****************************************************************************************/
 
 extern uint32 OS_FindCreator(void);
+extern int32 OS_TableLock(SemaphoreHandle_t mutex, TickType_t wait_time);
+extern int32 OS_TableUnlock(SemaphoreHandle_t mutex);
 
 /****************************************************************************************
                                 INTERNAL FUNCTION PROTOTYPES
@@ -231,7 +233,7 @@ int32 OS_TimerCreate(uint32 *timer_id, const char *timer_name, uint32 *clock_acc
         return OS_ERR_NAME_TOO_LONG;
     }
 
-    xSemaphoreTake( OS_timer_table_mut, portMAX_DELAY );
+    OS_TableLock( OS_timer_table_mut, portMAX_DELAY );
 
     for (possible_tid = 0; possible_tid < OS_MAX_TIMERS; possible_tid++)
     {
@@ -243,7 +245,7 @@ int32 OS_TimerCreate(uint32 *timer_id, const char *timer_name, uint32 *clock_acc
 
     if (possible_tid >= OS_MAX_TIMERS || OS_timer_table[possible_tid].free != TRUE)
     {
-        xSemaphoreGive( OS_timer_table_mut );
+        OS_TableUnlock( OS_timer_table_mut );
         return OS_ERR_NO_FREE_IDS;
     }
 
@@ -255,7 +257,7 @@ int32 OS_TimerCreate(uint32 *timer_id, const char *timer_name, uint32 *clock_acc
         if ((OS_timer_table[i].free == FALSE) &&
              strcmp((char*) timer_name, OS_timer_table[i].name) == 0)
         {
-            xSemaphoreGive( OS_timer_table_mut );
+            OS_TableUnlock( OS_timer_table_mut );
             return OS_ERR_NAME_TAKEN;
         }
     }
@@ -265,7 +267,7 @@ int32 OS_TimerCreate(uint32 *timer_id, const char *timer_name, uint32 *clock_acc
     ** no other task can try to use it 
     */
     OS_timer_table[possible_tid].free = FALSE;
-    xSemaphoreGive( OS_timer_table_mut );
+    OS_TableUnlock( OS_timer_table_mut );
 
     OS_timer_table[possible_tid].creator = OS_FindCreator();
     strncpy(OS_timer_table[possible_tid].name, timer_name, OS_MAX_API_NAME);
@@ -326,11 +328,11 @@ int32 OS_TimerSet(uint32 timer_id, uint32 start_time, uint32 interval_time)
       return OS_ERR_INVALID_ID;
    }
 
-   xSemaphoreTake( OS_timer_table_mut, portMAX_DELAY );
+   OS_TableLock( OS_timer_table_mut, portMAX_DELAY );
 
    if ( OS_timer_table[timer_id].free == TRUE)
    {
-      xSemaphoreGive( OS_timer_table_mut );
+      OS_TableUnlock( OS_timer_table_mut );
       return OS_ERR_INVALID_ID;
    }
    /*
@@ -358,7 +360,7 @@ int32 OS_TimerSet(uint32 timer_id, uint32 start_time, uint32 interval_time)
    ** Program the real timer
    */
    status = xTimerChangePeriod(OS_timer_table[timer_id].host_timer_handler, timeout, portMAX_DELAY);
-   xSemaphoreGive( OS_timer_table_mut );
+   OS_TableUnlock( OS_timer_table_mut );
    if (status != pdPASS) 
    {
       return ( OS_TIMER_ERR_INTERNAL);
@@ -399,16 +401,16 @@ int32 OS_TimerDelete(uint32 timer_id)
        return OS_ERR_INVALID_ID;
     }
 
-    xSemaphoreTake( OS_timer_table_mut, portMAX_DELAY );
+    OS_TableLock( OS_timer_table_mut, portMAX_DELAY );
 
     if (OS_timer_table[timer_id].free == TRUE)
     {
-        xSemaphoreGive( OS_timer_table_mut );
+        OS_TableUnlock( OS_timer_table_mut );
         return OS_ERR_INVALID_ID;
     }
 
     OS_timer_table[timer_id].free = TRUE;
-    xSemaphoreGive( OS_timer_table_mut );
+    OS_TableUnlock( OS_timer_table_mut );
 
     /*
     ** Delete the timer
@@ -453,19 +455,19 @@ int32 OS_TimerGetIdByName (uint32 *timer_id, const char *timer_name)
         return OS_ERR_NAME_TOO_LONG;
     }
 
-    xSemaphoreTake( OS_timer_table_mut, portMAX_DELAY );
+    OS_TableLock( OS_timer_table_mut, portMAX_DELAY );
     for (i = 0; i < OS_MAX_TIMERS; i++)
     {
         if (OS_timer_table[i].free != TRUE &&
                 (strcmp (OS_timer_table[i].name , (char*) timer_name) == 0))
         {
             *timer_id = i;
-            xSemaphoreGive( OS_timer_table_mut );
+            OS_TableUnlock( OS_timer_table_mut );
             return OS_SUCCESS;
         }
     }
 
-    xSemaphoreGive( OS_timer_table_mut );
+    OS_TableUnlock( OS_timer_table_mut );
     /* 
     ** The name was not found in the table,
     **  or it was, and the sem_id isn't valid anymore 
@@ -498,11 +500,11 @@ int32 OS_TimerGetInfo (uint32 timer_id, OS_timer_prop_t *timer_prop)
         return OS_ERR_INVALID_ID;
     }
 
-    xSemaphoreTake( OS_timer_table_mut, portMAX_DELAY );
+    OS_TableLock( OS_timer_table_mut, portMAX_DELAY );
 
     if (OS_timer_table[timer_id].free == TRUE)
     {
-        xSemaphoreGive( OS_timer_table_mut );
+        OS_TableUnlock( OS_timer_table_mut );
         return OS_ERR_INVALID_ID;
     }
 
@@ -515,7 +517,7 @@ int32 OS_TimerGetInfo (uint32 timer_id, OS_timer_prop_t *timer_prop)
     timer_prop -> interval_time = OS_timer_table[timer_id].interval_time;
     timer_prop -> accuracy      = OS_timer_table[timer_id].accuracy;
 
-    xSemaphoreGive( OS_timer_table_mut );
+    OS_TableUnlock( OS_timer_table_mut );
 
     return OS_SUCCESS;
 

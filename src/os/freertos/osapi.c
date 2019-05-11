@@ -125,8 +125,8 @@ volatile uint32 OS_shutdown = FALSE;
 void    OS_ThreadKillHandler(int sig );
 uint32  OS_FindCreator(void);
 
-static int OS_TableLock(SemaphoreHandle_t mutex, TickType_t wait_time);
-static int OS_TableUnlock(SemaphoreHandle_t mutex);
+int32 OS_TableLock(SemaphoreHandle_t mutex, TickType_t wait_time);
+int32 OS_TableUnlock(SemaphoreHandle_t mutex);
 
 /*---------------------------------------------------------------------------------------
    Name: OS_API_Init
@@ -2898,7 +2898,7 @@ int32 OS_CreateRootTask(void (*func_p)(void))
 **   Purpose: This function locks a mutex for mutual exclusion
 **
 */
-static int OS_TableLock(SemaphoreHandle_t mutex, TickType_t wait_time)
+int32 OS_TableLock(SemaphoreHandle_t mutex, TickType_t wait_time)
 {
     if (NULL != mutex)
     {
@@ -2924,7 +2924,7 @@ static int OS_TableLock(SemaphoreHandle_t mutex, TickType_t wait_time)
 **   Purpose: This function unlocks the mutex
 **
 */
-static int OS_TableUnlock(SemaphoreHandle_t mutex)
+int32 OS_TableUnlock(SemaphoreHandle_t mutex)
 {
     if (NULL != mutex)
     {
