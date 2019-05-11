@@ -49,6 +49,7 @@ void UT_os_setup_install_delete_handler_test(void);
 void UT_os_init_task_exit_test(void);
 void UT_os_init_task_delay_test(void);
 void UT_os_init_task_set_priority_test(void);
+void UT_os_init_task_register_test(void);
 void UT_os_init_task_get_id_test(void);
 void UT_os_init_task_get_id_by_name_test(void);
 void UT_os_init_task_get_info_test(void);
