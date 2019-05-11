@@ -38,8 +38,8 @@
 **  External Functions
 */
 
-extern void freertos_set_daemon(void (*func_p)(void));
-extern int32 OS_create_background_task(void (*func_p)(void));
+extern int32 OS_CreateRootTask(void (*func_p)(void));
+extern void OS_StartScheduler(void);
 
 /*
 **  External Declarations
@@ -263,21 +263,8 @@ void UT_BSP_EndTest(const UtAssert_TestCounter_t *TestCounters)
    exit(status);
 }
 
-void UT_BSP_StopTest(void)
-{
-   OS_ApplicationShutdown(TRUE);
-}
-
 /* void wrapper to avoid function pointer warnings */
-void UtTest_Run_void(void)
-{
-   /*
-   ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
-   */
-   UtTest_Run();
-}
-
-void delayed_main(void)
+void root_task(void)
 {
    UT_BSP_Setup("PC-FREERTOS UNIT TEST");
 
@@ -285,6 +272,12 @@ void delayed_main(void)
    ** Call application specific entry point.
    */
    OS_Application_Startup();
+
+   /*
+   ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
+   */
+   UtTest_Run();
+   UT_BSP_EndTest(UtAssert_GetCounters());
 }
 
 /******************************************************************************
@@ -302,14 +295,10 @@ void delayed_main(void)
 
 int main(int argc, char *argv[])
 {
-   freertos_set_daemon(delayed_main);
-   OS_create_background_task(UtTest_Run_void);
-
-   OS_IdleLoop();
-
-   UT_BSP_EndTest(UtAssert_GetCounters());
+   OS_CreateRootTask(root_task);
+   OS_StartScheduler();
 
    /* Should typically never get here */
-   return (EXIT_SUCCESS);
+   return 0;
 }
 

@@ -114,6 +114,8 @@ SemaphoreHandle_t OS_bin_sem_table_mut;
 SemaphoreHandle_t OS_count_sem_table_mut;
 SemaphoreHandle_t OS_mut_sem_table_mut;
 
+static SemaphoreHandle_t idle_sem_id;
+
 uint32          OS_printf_enabled = TRUE;
 volatile uint32 OS_shutdown = FALSE;
 
@@ -240,6 +242,13 @@ int32 OS_API_Init(void)
    */
    /* Not implemented */
 
+   idle_sem_id = xSemaphoreCreateBinary();
+   if( idle_sem_id == NULL )
+   {
+      return_code = OS_ERROR;
+      return(return_code);
+   }
+
    return_code = OS_SUCCESS;
 
    return(return_code);
@@ -320,8 +329,7 @@ void OS_DeleteAllObjects       (void)
 ---------------------------------------------------------------------------------------*/
 void OS_IdleLoop()
 {
-   /* Start the scheduler itself. */
-   vTaskStartScheduler();
+   xSemaphoreTake( idle_sem_id, portMAX_DELAY );
 }
 
 
@@ -336,8 +344,7 @@ void OS_IdleLoop()
 ---------------------------------------------------------------------------------------*/
 void OS_ApplicationShutdown(uint8 flag)
 {
-   /* End the scheduler. */
-   vTaskEndScheduler();
+   xSemaphoreGive( idle_sem_id );
 }
 
 
@@ -2804,6 +2811,11 @@ int32 OS_FPUExcGetMask(uint32 *mask)
 /****************************************************************************************
                                FreeRTOS specific functions
 ****************************************************************************************/
+void OS_StartScheduler(void)
+{
+   vTaskStartScheduler();
+}
+
 void vAssertCalled(unsigned long ulLine, const char * const pcFileName)
 {
 }
@@ -2854,7 +2866,7 @@ void background_task( void *pvParameters )
 }
 
 
-int32 OS_create_background_task(void (*func_p)(void))
+int32 OS_CreateRootTask(void (*func_p)(void))
 {
   BaseType_t    task_status;
   TaskHandle_t  task_handle;
