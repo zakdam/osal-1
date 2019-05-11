@@ -38,8 +38,6 @@ uint32 timer_function_failures;
 
 int    counter = 0;
 
-uint32 bin_sem_os_id;
-
 /*
  * Note that we should not call "printf" or anything
  * like that during a timer callback routine (may be ISR context)
@@ -131,8 +129,6 @@ void task_1(void)
 
 void task_2(void)
 {
-   int32 status;
-
    OS_TaskRegister();
 
    /*
@@ -143,9 +139,7 @@ void task_2(void)
       OS_TaskDelay(100);
    }
 
-   status = OS_BinSemGive(bin_sem_os_id);
-   UtAssert_True(status == OS_SUCCESS, "BinSemOS give Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
-
+   OS_ApplicationShutdown(TRUE);
    OS_TaskExit();
 }
 
@@ -244,11 +238,8 @@ void BinSemTimeoutSetup(void)
    UtAssert_True(status == OS_SUCCESS, "Timer 1 set Rc=%d", (int)status);
 
    /*
-    * Create a dedicated binary semaphore so the tasks and timers can run.
-    * Something must give back the semaphore when done which will continue the test.
+    * Call OS_IdleLoop so the tasks and timers can run
+    * Something must call OS_ApplicationShutdown when done which will continue the test
     */
-   status = OS_BinSemCreate(&bin_sem_os_id, "BinSemOS", 0, 0);
-   UtAssert_True(status == OS_SUCCESS, "BinSemOS create Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
-   status = OS_BinSemTake(bin_sem_os_id);
-   UtAssert_True(status == OS_SUCCESS, "BinSemOS take Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
+   OS_IdleLoop();
 }

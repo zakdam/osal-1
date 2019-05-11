@@ -125,12 +125,5 @@ void UT_BSP_DoTestSegmentReport(const char *SegmentName, const UtAssert_TestCoun
  */
 void UT_BSP_EndTest(const UtAssert_TestCounter_t *TestCounters);
 
-/**
- * The BSP test stop function.
- *
- * This function shutdowns the application.
- */
-void UT_BSP_StopTest(void);
-
 
 #endif /* _UTBSP_H_ */

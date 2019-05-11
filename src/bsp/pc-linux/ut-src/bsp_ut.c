@@ -32,7 +32,6 @@
 
 #include "utbsp.h"
 #include "uttest.h"
-#include "osapi.h"
 
 
 /*
@@ -257,17 +256,6 @@ void UT_BSP_EndTest(const UtAssert_TestCounter_t *TestCounters)
    exit(status);
 }
 
-void UT_BSP_StopTest(void)
-{
-   OS_ApplicationShutdown(TRUE);
-}
-
-/* void wrapper to avoid function pointer warnings */
-void UtTest_Run_void(void)
-{
-   UtTest_Run();
-}
-
 /******************************************************************************
 **  Function:  main()
 **
@@ -295,13 +283,7 @@ int main(int argc, char *argv[])
    /*
    ** In unit test mode, call the UtTest_Run function (part of UT Assert library)
    */
-   uint32 task_id = 0;
-   uint32 task_stack[2048];
-   /* TODO: align with a task type */
-   OS_TaskCreate(&task_id, "UtTest_Run", UtTest_Run_void, task_stack, 2048, 101, 0);
-
-   OS_IdleLoop();
-
+   UtTest_Run();
    UT_BSP_EndTest(UtAssert_GetCounters());
 
    /* Should typically never get here */

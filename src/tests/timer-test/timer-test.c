@@ -33,8 +33,6 @@ uint32 TimerTestTaskStack[TASK_1_STACK_SIZE];
 int32 timer_counter[NUMBER_OF_TIMERS];
 uint32 timer_idlookup[OS_MAX_TIMERS];
 
-uint32 bin_sem_os_id;
-
 /*
 ** Test timer function.
 ** Note: For some Host OSs, this is the equivalent of an ISR, so the calls available are limited.
@@ -75,8 +73,9 @@ void TimerTestSetup(void)
     UtAssert_True(status == OS_SUCCESS, "Timer Test Task Created RC=%d", (int)status);
 
     /*
-     * Create a dedicated binary semaphore so the tasks and timers can run.
-     * Something must give back the semaphore when done which will continue the test.
+     * Invoke OS_IdleLoop() so that the task/timers can run
+     *
+     * OS_IdleLoop() will return once TimerTestTask calls OS_ApplicationShutdown
      *
      * It is important to note that UT Assert does NOT officially
      * support multi-threaded testing.  HOWEVER, the architecture of
@@ -85,10 +84,7 @@ void TimerTestSetup(void)
      *
      * Therefore it is OK to use UT asserts within both functions.
      */
-    status = OS_BinSemCreate(&bin_sem_os_id, "BinSemOS", 0, 0);
-    UtAssert_True(status == OS_SUCCESS, "BinSemOS create Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
-    status = OS_BinSemTake(bin_sem_os_id);
-    UtAssert_True(status == OS_SUCCESS, "BinSemOS take Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
+    OS_IdleLoop();
 }
 
 void TimerTestTask(void)
@@ -99,7 +95,6 @@ void TimerTestTask(void)
    uint32           TimerID[NUMBER_OF_TIMERS];
    char             TimerName[NUMBER_OF_TIMERS][20] = {"TIMER1","TIMER2","TIMER3","TIMER4"};
    uint32           ClockAccuracy;
-   int32            status;
 
 
    for ( i = 0; i < NUMBER_OF_TIMERS; i++ )
@@ -114,6 +109,7 @@ void TimerTestTask(void)
 
       timer_idlookup[TimerID[i]] = i;
    }
+
 
    /*
    ** Let the main thread sleep 
@@ -139,9 +135,7 @@ void TimerTestTask(void)
                i, (int)TimerStatus, (int)timer_counter[i]);
    }
 
-   status = OS_BinSemGive(bin_sem_os_id);
-   UtAssert_True(status == OS_SUCCESS, "BinSemOS give Id=%u Rc=%d", (unsigned int)bin_sem_os_id, (int)status);
-
+   OS_ApplicationShutdown(TRUE);
    OS_TaskExit();
 }
 
