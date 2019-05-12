@@ -125,8 +125,15 @@ volatile uint32 OS_shutdown = FALSE;
 void    OS_ThreadKillHandler(int sig );
 uint32  OS_FindCreator(void);
 
+static void root_task( void *pvParameters );
+
 int32 OS_TableLock(SemaphoreHandle_t mutex, TickType_t wait_time);
 int32 OS_TableUnlock(SemaphoreHandle_t mutex);
+
+/*
+** Static Function Pointers
+*/
+static void (*root_func_p)(void);
 
 /*---------------------------------------------------------------------------------------
    Name: OS_API_Init
@@ -2811,54 +2818,44 @@ int32 OS_FPUExcGetMask(uint32 *mask)
 /****************************************************************************************
                                FreeRTOS specific functions
 ****************************************************************************************/
+/*
+**
+**   Name: OS_StartScheduler
+**
+**   Purpose: This function starts FreeRTOS scheduler 
+**
+**   Notes: This function is specific for FreeRTOS, so it's not mentioned in 
+**          "osapi-os-core.h" header file
+*/
 void OS_StartScheduler(void)
 {
    vTaskStartScheduler();
 }
 
-void vAssertCalled(unsigned long ulLine, const char * const pcFileName)
-{
-}
-
-void vApplicationMallocFailedHook(void)
-{
-}
-
-void vApplicationIdleHook(void)
-{
-}
-
-void vApplicationTickHook(void)
-{
-}
-
-void vApplicationDaemonTaskStartupHook(void)
-{
-}
-
-
-static void (*background_func_p)(void);
-
-void background_task( void *pvParameters )
-{
-  if (background_func_p != NULL)
-  {
-    background_func_p();
-  }
-
-  vTaskDelete( NULL );
-}
-
-
+/*
+**
+**   Name: OS_CreateRootTask
+**
+**   Purpose: This function creates root task which is used to initialize OS API 
+**            and start folowing tasks
+**
+**   Notes: This function is specific for FreeRTOS, so it's not mentioned in 
+**          "osapi-os-core.h" header file
+*/
 int32 OS_CreateRootTask(void (*func_p)(void))
 {
   BaseType_t    task_status;
   TaskHandle_t  task_handle;
 
-  background_func_p = func_p;
+  if (func_p == NULL)
+  {
+    return OS_INVALID_POINTER;
+  }
 
-  task_status = xTaskCreate( (TaskFunction_t) background_task, 
-                             "background", 
+  root_func_p = func_p;
+
+  task_status = xTaskCreate( (TaskFunction_t) root_task, 
+                             "root", 
                              4096, 
                              NULL, 
                              configMAX_PRIORITIES - 1, 
@@ -2870,6 +2867,49 @@ int32 OS_CreateRootTask(void (*func_p)(void))
   }
 
   return OS_SUCCESS;
+}
+
+/* root_task() calls root_func() which should be defined inside 
+   bsp_start.c or bsp_ut.c */
+static void root_task( void *pvParameters )
+{
+  if (root_func_p != NULL)
+  {
+    root_func_p();
+  }
+
+  vTaskDelete( NULL );
+}
+
+
+/*
+** FreeRTOSConfig.h dependent functions
+*/
+
+/* Used if configASSERT() macro is defined */
+void vAssertCalled(unsigned long ulLine, const char * const pcFileName)
+{
+}
+
+/* Used only if configUSE_MALLOC_FAILED_HOOK is set to 1 */
+void vApplicationMallocFailedHook(void)
+{
+}
+
+/* Used only if configUSE_IDLE_HOOK is set to 1 */
+void vApplicationIdleHook(void)
+{
+}
+
+/* Used only if configUSE_TICK_HOOK is set to 1 */
+void vApplicationTickHook(void)
+{
+}
+
+/* Used only if configUSE_TIMERS and configUSE_DAEMON_TASK_STARTUP_HOOK 
+   are both set to 1 */
+void vApplicationDaemonTaskStartupHook(void)
+{
 }
 
 /****************************************************************************************
