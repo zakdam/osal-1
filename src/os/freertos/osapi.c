@@ -2841,8 +2841,6 @@ static void (*background_func_p)(void);
 
 void background_task( void *pvParameters )
 {
-  printf("Bang\n");
-
   if (background_func_p != NULL)
   {
     background_func_p();

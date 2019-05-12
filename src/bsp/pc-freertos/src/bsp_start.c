@@ -13,9 +13,6 @@
 ** Purpose:
 **   OSAL BSP main entry point.
 **
-** History:
-**   2005/07/26  A. Cudmore      | Initial version for linux 
-**
 ******************************************************************************/
 
 /*
@@ -28,6 +25,12 @@
 */
 
 /*
+**  External Functions
+*/
+extern int32 OS_CreateRootTask(void (*func_p)(void));
+extern void OS_StartScheduler(void);
+
+/*
 **  External Declarations
 */
 void OS_Application_Startup(void);
@@ -36,6 +39,21 @@ void OS_Application_Startup(void);
 ** Global variables
 */
 
+
+/* root_func should be called inside FreeRTOS root_task */
+static void root_func(void)
+{
+   /*
+   ** Call application specific entry point.
+   */
+   OS_Application_Startup();
+
+   /*
+   ** OS_IdleLoop() will wait forever and return if
+   ** someone calls OS_ApplicationShutdown(TRUE)
+   */
+   OS_IdleLoop();
+}
 
                                                                                                                                                 
 /******************************************************************************
@@ -53,23 +71,10 @@ void OS_Application_Startup(void);
 
 int main(int argc, char *argv[])
 {
-   /*
-   ** OS_API_Init is called by OS_Application_Startup
-   ** Also note that OS_API_Init now also takes care of signal masking
-   */
-
-   /*
-   ** Call application specific entry point.
-   */
-   OS_Application_Startup();
-
-   /*
-   ** OS_IdleLoop() will wait forever and return if
-   ** someone calls OS_ApplicationShutdown(TRUE)
-   */
-   OS_IdleLoop();
+   OS_CreateRootTask(root_func);
+   OS_StartScheduler();
 
    /* Should typically never get here */
-   return(EXIT_SUCCESS);
+   return 0;
 }
 

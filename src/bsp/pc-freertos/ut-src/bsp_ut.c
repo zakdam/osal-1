@@ -13,9 +13,6 @@
 ** Purpose:
 **   BSP unit test implementation functions.
 **
-** History:
-**   Created on: Feb 10, 2015
-**
 ******************************************************************************/
 
 /*
@@ -37,7 +34,6 @@
 /*
 **  External Functions
 */
-
 extern int32 OS_CreateRootTask(void (*func_p)(void));
 extern void OS_StartScheduler(void);
 
@@ -263,8 +259,8 @@ void UT_BSP_EndTest(const UtAssert_TestCounter_t *TestCounters)
    exit(status);
 }
 
-/* void wrapper to avoid function pointer warnings */
-void root_task(void)
+/* root_func should be called inside FreeRTOS root_task */
+static void root_func(void)
 {
    UT_BSP_Setup("PC-FREERTOS UNIT TEST");
 
@@ -295,7 +291,7 @@ void root_task(void)
 
 int main(int argc, char *argv[])
 {
-   OS_CreateRootTask(root_task);
+   OS_CreateRootTask(root_func);
    OS_StartScheduler();
 
    /* Should typically never get here */
