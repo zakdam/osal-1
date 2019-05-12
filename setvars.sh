@@ -5,6 +5,8 @@
 #
 cd src
 export OSAL_SRC=`pwd`
+cd ../build
+export OSAL_BUILD=`pwd`
 
 # For RTEMS targets, set the location of the RTEMS libraries.
 # This allows the OSAL makefiles to remain unchanged.
