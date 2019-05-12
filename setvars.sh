@@ -13,4 +13,7 @@ export OSAL_SRC=`pwd`
 # The following is my personal RTEMS BSP build directory
 export RTEMS_BSP_BASE="/home/acudmore/Projects/rtems-devkit/rtems-bsps/rtems-4.10"
 
+# For FreeRTOS targets, set the location of the FreeRTOS sources.
+export FREERTOS_ROOT="/home/user/projects/FreeRTOS-Sim"
+
 cd ..

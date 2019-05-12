@@ -6,9 +6,6 @@
 #
 ###############################################################################
 
-FREERTOS_ROOT = /home/user/projects/FreeRTOS-Sim
-
-
 #
 # Subsystem produced by this makefile.
 #

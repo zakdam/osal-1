@@ -1,7 +1,7 @@
 ###############################################################################
 ## compiler-opts.mak - compiler definitions and options for building the OSAL 
 ##
-## Target: x86 PC Linux
+## Target: x86 PC Linux running FreeRTOS Simulator
 ##
 ## Modifications:
 ##
@@ -15,8 +15,6 @@ WARNINGS=-Wall -pedantic -std=c99 -Wstrict-prototypes
 ## 
 ## FreeRTOS simulator Include Paths
 ##
-# TODO beautify it! (copy-pasted from other OS)
-FREERTOS_ROOT = /home/user/projects/FreeRTOS-Sim
 FREERTOS_SIM = $(FREERTOS_ROOT)/Source/include \
                $(FREERTOS_ROOT)/Source/portable/GCC/POSIX/ \
                $(FREERTOS_ROOT)/Demo/Common/include \

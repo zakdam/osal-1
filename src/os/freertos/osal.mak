@@ -6,11 +6,8 @@
 #
 ###############################################################################
 
-echo BOOM
-
 # Subsystem produced by this makefile.
 TARGET = osal.o
-FREERTOS_ROOT = /home/user/projects/FreeRTOS-Sim
 
 #==============================================================================
 # Object files required to build subsystem.
