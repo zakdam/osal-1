@@ -32,9 +32,9 @@ OS = freertos
 ## BSP = mcf5235-rtems       -- RTEMS Coldfire evaluation board
 ## BSP = sis-rtems           -- RTEMS Sparc Instruction Simulator (GDB)
 ## BSP = sparc-vxworks6.7    -- ut699 SPARC Leon3 development board
-## BSP = arm-freertos        -- Target to run on ARM FreeRTOS
+## BSP = pc-freertos         -- Target to run on PC + FreeRTOS Simulator
 ##---------------------------------------------------------
-BSP = arm-freertos
+BSP = pc-freertos
 
 ##---------------------------------------------------------
 ## OSAL_M32 -- optional, build 32-bit images on 64-bit build machines
