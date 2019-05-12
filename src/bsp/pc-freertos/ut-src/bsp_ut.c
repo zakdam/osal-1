@@ -48,57 +48,16 @@ void OS_Application_Startup(void);
 */
 static uint32 CurrVerbosity = (2 << UTASSERT_CASETYPE_PASS) - 1;
 
-void UT_BSP_ParseCommandLine(int argc, char *argv[])
-{
-    uint8 UserShift;
-    int opt;
-
-    UserShift = UTASSERT_CASETYPE_NONE;
-    while ((opt = getopt(argc, argv, "v:qd")) != -1)
-    {
-        switch (opt) {
-        case 'd':
-            UserShift = UTASSERT_CASETYPE_DEBUG;
-            break;
-        case 'q':
-            UserShift = UTASSERT_CASETYPE_FAILURE;
-            break;
-        case 'v':
-            UserShift = atoi(optarg);
-            break;
-        default: /* '?' */
-            fprintf(stderr, "Usage: %s [-v verbosity] [-d] [-q]\n",
-                    argv[0]);
-            exit(EXIT_FAILURE);
-        }
-        if (UserShift > 0 && UserShift < UTASSERT_CASETYPE_MAX)
-        {
-            CurrVerbosity = (2 << UserShift) - 1;
-        }
-    }
-
-
-}
-
 void UT_BSP_Setup(const char *Name)
 {
-    int      mode;
-
     UT_BSP_DoText(UTASSERT_CASETYPE_BEGIN, Name);
 
     /*
     ** Create local directories for "disk" mount points
     **  See bsp_voltab for the values
+    **  
+    **  Currently not used since there is no FS support yet.
     */
-    printf("Making directories: ram0, ram1, eeprom1 for OSAL mount points\n");
-    mode = S_IFDIR |S_IRWXU | S_IRWXG | S_IRWXO;
-    mkdir("ram0", mode);
-    mkdir("ram1", mode);
-    mkdir("eeprom1", mode);
-
-    /* For unit testing, the ram3/ram4 mount points need to exist as well */
-    mkdir("ram3", mode);
-    mkdir("ram4", mode);
 }
 
 void UT_BSP_StartTestSegment(uint32 SegmentNumber, const char *SegmentName)
@@ -215,8 +174,6 @@ void UT_BSP_DoTestSegmentReport(const char *SegmentName, const UtAssert_TestCoun
 
 void UT_BSP_EndTest(const UtAssert_TestCounter_t *TestCounters)
 {
-   int status = 0;
-
    /*
     * Only output a "summary" if there is more than one test Segment.
     * Otherwise it is a duplicate of the report already given.
@@ -229,34 +186,10 @@ void UT_BSP_EndTest(const UtAssert_TestCounter_t *TestCounters)
    printf("COMPLETE: %u tests Segment(s) executed\n\n", (unsigned int)TestCounters->TestSegmentCount);
 
    /*
-    * The Linux UT BSP allows at least a 7 bit status code to be returned to the OS (i.e. the exit status
-    * of the process).  This is useful to report pass/fail.  Because we have multiple bits, we can make
-    * descriptive exit status codes to indicate what went wrong.  Anything nonzero represents failure.
-    *
-    * Consider Failures as well as "TSF" (setup failures) to be grounds for returning nonzero (bad) status.
-    * Also the lack of ANY test cases should produce a bad status.
-    *
-    * "MIR" results should not produce a bad status -- these may have worked fine, we do not know.
-    *
-    * Likewise "N/A" tests are simply not applicable, so we just ignore them.
+    * Since FreeRTOS simulation is running on Linux PC as any regular application,
+    * we may simply call exit(0) to finish tests.
     */
-
-   if (TestCounters->TotalTestCases == 0)
-   {
-      status |= 0x01;
-   }
-
-   if (TestCounters->CaseCount[UTASSERT_CASETYPE_FAILURE] > 0)
-   {
-      status |= 0x02;
-   }
-
-   if (TestCounters->CaseCount[UTASSERT_CASETYPE_TSF] > 0)
-   {
-      status |= 0x04;
-   }
-
-   exit(status);
+   exit(0);
 }
 
 /* root_func should be called inside FreeRTOS root_task */
