@@ -2832,26 +2832,12 @@ void vApplicationTickHook(void)
 {
 }
 
-static void (*daemon_p)(void) = NULL;
-
-void freertos_set_daemon(void (*func_p)(void))
-{
-  daemon_p = func_p;
-}
-
-
 void vApplicationDaemonTaskStartupHook(void)
 {
-  printf("Hi, I'm hereee\n");
-
-  if (NULL != daemon_p)
-  {
-    daemon_p();
-  }
 }
 
-static void (*background_func_p)(void);
 
+static void (*background_func_p)(void);
 
 void background_task( void *pvParameters )
 {
