@@ -15,7 +15,7 @@
 LDFLAGS ?= $(OSAL_M32)
 
 # FreeRTOS static library
-LIBS = $(FREERTOS_ROOT)/FreeRTOS_Sim.a
+LIBS = $(OSAL_BUILD)/freertos-target/FreeRTOS_Sim.a
 
 ##
 ## Libraries to link in
