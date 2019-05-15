@@ -991,7 +991,10 @@ int32 OS_QueueDelete (uint32 queue_id)
     }
 
     /* Delete the queue (FreeRTOS doesn't have return code for this operation) */
-    vQueueDelete( OS_queue_table[queue_id].queue_handle );
+    if (OS_queue_table[queue_id].queue_handle != NULL)
+    {
+      vQueueDelete( OS_queue_table[queue_id].queue_handle );
+    }
 
     /*
      * Now that the queue is deleted, remove its "presence"
@@ -1901,7 +1904,10 @@ int32 OS_CountSemDelete (uint32 sem_id)
     }
 
     /* FreeRTOS doesn't have return values for this operation */
-    vSemaphoreDelete(OS_count_sem_table[sem_id].count_sem_handle);
+    if (OS_count_sem_table[sem_id].count_sem_handle != NULL)
+    {
+      vSemaphoreDelete(OS_count_sem_table[sem_id].count_sem_handle);
+    }
 
     /* 
     ** Remove the Id from the table, and its name, so that it cannot be found again 
@@ -2328,7 +2334,10 @@ int32 OS_MutSemDelete (uint32 sem_id)
     }
 
     /* FreeRTOS doesn't have return values for this operation */
-    vSemaphoreDelete( OS_mut_sem_table[sem_id].mut_sem_handle );
+    if (OS_mut_sem_table[sem_id].mut_sem_handle != NULL)
+    {
+      vSemaphoreDelete( OS_mut_sem_table[sem_id].mut_sem_handle );
+    }
 
     /* Delete its presence in the table */
     /*
