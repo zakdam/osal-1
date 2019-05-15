@@ -85,7 +85,7 @@ int32 OS_TimerAPIInit ( void )
     /*
     ** Store the clock accuracy for 1 tick.
     */
-    OS_TicksToUsecs(1, &os_clock_accuracy);  /* TODO: took it from rtems, is it ok? */
+    OS_TicksToUsecs(1, &os_clock_accuracy);
 
     /*
     ** Create the Timer Table mutex

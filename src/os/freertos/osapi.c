@@ -626,9 +626,6 @@ int32 OS_TaskSetPriority (uint32 task_id, uint32 new_priority)
 
     /* Set FreeRTOS Task Priority */
     vTaskPrioritySet( OS_task_table[task_id].task_handle, new_priority );
-
-    /* TODO: do we need to translate priority for FreeRTOS? */
-    /* Use the abstracted priority, not the OS one */
     /* Change the priority in the table as well */
     OS_task_table[task_id].priority = new_priority;
 
@@ -1083,7 +1080,7 @@ int32 OS_QueueGet (uint32 queue_id, void *data, uint32 size, uint32 *size_copied
         sys_ticks = OS_Milli2Ticks(timeout);
         status = xQueueReceive( OS_queue_table[queue_id].queue_handle, data, (TickType_t)sys_ticks );
 
-        if (status != pdPASS)  /* TODO: check if the queue is empty? */
+        if (status != pdPASS)
         {
             *size_copied = 0;
             return OS_QUEUE_TIMEOUT;
@@ -1097,7 +1094,7 @@ int32 OS_QueueGet (uint32 queue_id, void *data, uint32 size, uint32 *size_copied
     }
     else
     {
-        *size_copied = (uint32) size;  /* TODO: is it correct? */
+        *size_copied = size;
         return OS_SUCCESS;
     }
 
