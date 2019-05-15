@@ -61,7 +61,7 @@ BIN_C_FILES			+= main.c
 INCLUDES        += -I$(SRCROOT)/Source/include
 INCLUDES        += -I$(SRCROOT)/Source/portable/GCC/POSIX/
 INCLUDES        += -I$(SRCROOT)/Demo/Common/include
-INCLUDES        += -I$(SRCROOT)/Project
+INCLUDES        += -I$(CURDIR)  # local FreeRTOSConfig.h substitution
 
 # Generate LIB_OBJS names
 LIB_OBJS = $(patsubst %.c,%.o,$(LIB_C_FILES))
