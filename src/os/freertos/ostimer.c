@@ -135,12 +135,7 @@ static void OS_TimerSignalHandler(TimerHandle_t xTimer)
             /*
             ** Return values from xTimer...() functions are not used
             */
-// TODO: switch to:
-//            xTimerChangePeriodFromISR()
             xTimerChangePeriod(xTimer, timeout, portMAX_DELAY);
-
-// TODO: switch to:
-//            xTimerStartFromISR()
             xTimerStart(xTimer, portMAX_DELAY);
           }
 
