@@ -2900,8 +2900,15 @@ static void root_task( void *pvParameters )
 */
 
 /* Used if configASSERT() macro is defined */
-void vAssertCalled(unsigned long ulLine, const char * const pcFileName)
+void vAssertCalled( unsigned long ulLine, const char * const pcFileName )
 {
+  taskENTER_CRITICAL();
+  {
+        printf("[ASSERT] %s:%lu\n", pcFileName, ulLine);
+        fflush(stdout);
+  }
+  taskEXIT_CRITICAL();
+  exit(-1);
 }
 
 /* Used only if configUSE_MALLOC_FAILED_HOOK is set to 1 */
