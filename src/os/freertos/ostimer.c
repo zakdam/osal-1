@@ -277,9 +277,10 @@ int32 OS_TimerCreate(uint32 *timer_id, const char *timer_name, uint32 *clock_acc
 
     /*
     ** Create the timer
+    ** FreeRTOS prohibits to create a timer with 0 period, so we are using 1 second.
     */
 //    status = timer_create(CLOCK_REALTIME, NULL, (timer_t *)&(OS_timer_table[possible_tid].host_timer_handler));
-    possible_host_timer_handler = xTimerCreate(timer_name, pdMS_TO_TICKS(0), pdFALSE, NULL /* void * const pvTimerID */, OS_TimerSignalHandler);
+    possible_host_timer_handler = xTimerCreate(timer_name, pdMS_TO_TICKS(1000), pdFALSE, NULL /* void * const pvTimerID */, OS_TimerSignalHandler);
     if (possible_host_timer_handler == NULL)
     {
         OS_timer_table[possible_tid].free = TRUE;
