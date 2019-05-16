@@ -2871,11 +2871,12 @@ int32 OS_CreateRootTask(void (*func_p)(void))
 
   root_func_p = func_p;
 
+  /* we should use "configMAX_PRIORITIES - 2" to have lower priority than FreeRTOS prvTimerTask */
   task_status = xTaskCreate( (TaskFunction_t) root_task, 
                              "root", 
                              4096, 
                              NULL, 
-                             configMAX_PRIORITIES - 1, 
+                             configMAX_PRIORITIES - 2,
                              &task_handle );
 
   if (task_status != pdPASS)
