@@ -138,7 +138,6 @@ void task_2(void)
 {
    OS_TaskRegister();
 
-   printf("ZOOM\n");
    /*
     * Limit the amount of time the test runs
     */
@@ -147,7 +146,6 @@ void task_2(void)
       OS_TaskDelay(100);
    }
 
-   printf("BOOM\n");
    OS_ApplicationShutdown(TRUE);
    OS_TaskExit();
 }

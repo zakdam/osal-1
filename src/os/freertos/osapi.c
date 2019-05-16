@@ -274,11 +274,9 @@ int32 OS_API_Init(void)
 ---------------------------------------------------------------------------------------*/
 void OS_ApplicationExit(int32 Status)
 {
-   printf("1\n");
    /* vTaskEndScheduler() implemented only for x86 PC port */
    vTaskEndScheduler();
 
-   printf("2\n");
    if (Status == OS_SUCCESS)
    {
       exit(EXIT_SUCCESS);
